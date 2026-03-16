@@ -20,7 +20,7 @@ scipy==1.13.1
 #Statistical modelling library
 statsmodels==0.14.2
 #Reads YAML configuration files
-PyAML==6.0.1
+PyYAML==6.0.1
 #System monitoring library
 psutil==5.9.8
 #Multi-object Tracking evaluation library
