@@ -1,0 +1,61 @@
+# -----------------------------------------------
+# DATASETS — never pushed to GitHub
+# stored on external drive only
+# -----------------------------------------------
+data/ua_detrac/raw/*
+data/ua_detrac/processed/images/train/*
+data/ua_detrac/processed/images/val/*
+data/ua_detrac/processed/images/test/*
+data/ua_detrac/processed/labels/train/*
+data/ua_detrac/processed/labels/val/*
+data/ua_detrac/processed/labels/test/*
+data/ua_detrac/annotations/*
+data/ai_city/*
+data/tu_dat/*
+
+# Keeping folder structure visible on GitHub
+!data/ua_detrac/raw/.gitkeep
+!data/ua_detrac/processed/images/train/.gitkeep
+!data/ua_detrac/processed/images/val/.gitkeep
+!data/ua_detrac/processed/images/test/.gitkeep
+!data/ua_detrac/processed/labels/train/.gitkeep
+!data/ua_detrac/processed/labels/val/.gitkeep
+!data/ua_detrac/processed/labels/test/.gitkeep
+!data/ua_detrac/annotations/.gitkeep
+!data/ai_city/.gitkeep
+!data/tu_dat/.gitkeep
+
+# -----------------------------------------------
+# MODEL WEIGHTS — too large for GitHub
+# -----------------------------------------------
+models/*
+!models/.gitkeep
+*.pt
+*.pth
+*.pkl
+
+# -----------------------------------------------
+# CACHE, LOGS, RUNS — generated at runtime
+# -----------------------------------------------
+detections_cache/*
+!detections_cache/.gitkeep
+logs/*
+!logs/.gitkeep
+runs/*
+!runs/.gitkeep
+
+# -----------------------------------------------
+# PYTHON ARTIFACTS
+# -----------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+venv/
+.env
+
+# -----------------------------------------------
+# OS FILES
+# -----------------------------------------------
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+#Pinned package versions for full reproducibility
+#Primary use : Google Colab
+
+#deep learning framework
+torch==2.3.1
+#Computer vision utilities built on PyTorch
+torchvision==0.18.1
+#Provides YOLOv8 implementation
+ultralytics==8.2.0
+#For image and video processing
+opencv-python==4.9.0.80
+#Core numerical library for Python
+numpy==1.26.4
+#Data analysis library
+pandas==2.2.2
+#Machine learning library
+scikit-learn==1.5.0
+#Scientific computing library
+scipy==1.13.1
+#Statistical modelling library
+statsmodels==0.14.2
+#Reads YAML configuration files
+PyAML==6.0.1
+#System monitoring library
+psutil==5.9.8
+#Multi-object Tracking evaluation library
+motmetrics==1.4.0
+#Serialisation and parallel processing
+joblib==1.4.2
+#Basic plotting library
+matplotlib==3.9.0
+#Advanced statistical visualisation library
+seaborn==0.13.2

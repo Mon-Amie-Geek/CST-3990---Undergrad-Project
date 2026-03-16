@@ -1,0 +1,22 @@
+# config_blockC.yaml
+# Block C - Feature Extraction Configuration
+
+detector: TBD_from_block_A
+tracker: TBD_from_block_B
+# Ignore/Stabilise first 10 frames before computing features
+warmup_frames: 10
+# ROI : Region Of Interest
+roi_policy: full_frame
+# Speed is estimated using position changes across 0.2 seconds
+speed_window_sec: 0.2
+# Analysis of how vehicles behave relative to each other within 2 seconds of observation
+prox_window_sec: 2.0
+# Feature scaling - Clean anomaly detection methodology
+scaler_fit_split: ua_detrac_train_normal_only
+# Features to evaluate
+feature_sets:
+  - F1_only
+  - F2_only
+  - F2_F3
+  - all
+seed: 42

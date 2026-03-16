@@ -1,0 +1,29 @@
+# config_blockD.yaml
+# Block D - Anomaly Detection Configuration
+
+detector: TBD_from_block_A
+tracker: TBD_from_block_B
+# AUROC : Commonly used for anomaly detection - How normal and anomalous cases are separated across thresholds
+feature_set: TBD_from_block_C_best_AUROC
+anomaly_methods:
+  # Interpretable, no model training required, traditional benchmark
+  - rule_based
+  # Classic anomaly detection - widely used : kernel-based
+  - ocsvm
+  # Standard method : tree-based
+  - isolation_forest
+datasets:
+  primary: ai_city
+  supplementary: tu_dat
+# Anomaly should be trained on normal data only
+ocsvm_train_on: ua_detrac_train_normal_only
+# Load the saved MinMax scaler from this path : Puts value into comparable numeric range
+# .pkl : Reproducibility 
+scaler: models/minmax_scaler.pkl
+# Context frames : Not hardcoded but determined dynamically
+context_frames: runtime
+# Report anomalies at event level, not raw frame-level
+per_event_reporting: true
+# False Alarm Rate : As reporting/control cutoff
+far_threshold: 0.10
+seed: 42

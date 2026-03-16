@@ -1,0 +1,27 @@
+# config_blockA.yaml
+# Block A - Detector Comparison Configuration
+
+dataset: ua_detrac
+sequences: clips_master.txt
+train_resolution: original
+# 640 - Common size, specially for YOLO
+infer_resolution: [640, 640]
+# Treat all vehicles as one
+class_map:
+  Car: 0
+  Van: 0
+  Bus: 0
+  Others: 0
+# 0 : Visible/minimal occlusion, 1 : Mild occlusion
+occlusion_filter: [0, 1]
+conf_thresh: 0.25
+#Non-maximum Suppression threshold: How overlapping boxes are filtered
+nms_thresh: 0.45
+splits:
+  train: 0.70
+  val: 0.15
+  test: 0.15
+split_source: official_train_set_only
+seed: 42
+# Ignore/Stabilise first 10 frames
+warmup_frames: 10

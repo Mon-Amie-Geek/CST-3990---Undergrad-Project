@@ -1,0 +1,24 @@
+# config_blockB.yaml
+# Block B - Tracker Comparison Configuration
+
+detector: TBD_from_block_A
+detections_source: detections_cache/
+trackers:
+  - sort
+  - deepsort
+  - bytetrack
+  # Intended to specify appearance/ re-identification model used by DeepSORT
+  # Two detections from different frames belonging to the same vehicle --> When vehicles overlap, objects leave and  re-enter view & possibility for identity switch
+reid_model: osnet_x1_0_veri_776
+# Discards tracks shorter than 15 frames
+min_track_length: 15
+# Allow interpolation across max gap of 3 frames
+max_interp_gap: 3
+bytetrack:
+  track_high_thresh: 0.50
+  track_low_thresh: 0.10
+  # Matching between detections and tracks
+  match_thresh: 0.80
+  # Track can remain unmatched for upto 30 frames before being dropped
+  max_time_lost: 30
+seed: 42
