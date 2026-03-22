@@ -1,0 +1,14 @@
+# configs/dataset.yaml
+# Created as early preparation - To be actively used for YOLOv8n training
+
+path: data/ua_detrac/processed
+train: images/train
+val: images/val
+test: images/test
+
+nc: 1
+namess: ['vehicle']
+
+# Training resolution : original 960x540
+# NOTE : Do NOT manually resize frames before training - this distorts bounding box coordinates. YOLO handles internal resizing during training
+
