@@ -1,0 +1,90 @@
+{
+  "day": 2,
+  "sequences_processed": [
+    "MVI_20011",
+    "MVI_20012",
+    "MVI_20032",
+    "MVI_20034",
+    "MVI_20035",
+    "MVI_20051",
+    "MVI_20052",
+    "MVI_20061",
+    "MVI_20062",
+    "MVI_20063"
+  ],
+  "total_sequences": 5167,
+  "val_count": 790,
+  "split_seqs": {
+    "train": [
+      "MVI_20011",
+      "MVI_20012",
+      "MVI_20032",
+      "MVI_20034",
+      "MVI_20035",
+      "MVI_20051",
+      "MVI_20052"
+    ],
+    "val": [
+      "MVI_20061"
+    ],
+    "test": [
+      "MVI_20062",
+      "MVI_20063"
+    ]
+  },
+  "per_seq_frame_counts": {
+    "MVI_20011": 654,
+    "MVI_20012": 926,
+    "MVI_20032": 427,
+    "MVI_20034": 790,
+    "MVI_20035": 790,
+    "MVI_20051": 896,
+    "MVI_20052": 684,
+    "MVI_20061": 790,
+    "MVI_20062": 790,
+    "MVI_20063": 790
+  },
+  "fps_per_seq": {
+    "MVI_20011": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20012": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20032": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20034": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20035": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20051": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20052": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20061": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20062": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    },
+    "MVI_20063": {
+      "fps": 25.0,
+      "fps_source": "default_25"
+    }
+  },
+  "ingestion_mode": "image_sequence"
+}
