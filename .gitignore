@@ -11,7 +11,7 @@ data/ua_detrac/processed/labels/val/*
 data/ua_detrac/processed/labels/test/*
 data/ua_detrac/annotations/*
 data/ai_city/*
-data/tu_dat/*
+
 
 # Keeping folder structure visible on GitHub
 !data/ua_detrac/raw/.gitkeep
@@ -23,7 +23,7 @@ data/tu_dat/*
 !data/ua_detrac/processed/labels/test/.gitkeep
 !data/ua_detrac/annotations/.gitkeep
 !data/ai_city/.gitkeep
-!data/tu_dat/.gitkeep
+
 
 # -----------------------------------------------
 # MODEL WEIGHTS — too large for GitHub
@@ -41,6 +41,8 @@ detections_cache/*
 !detections_cache/.gitkeep
 logs/*
 !logs/.gitkeep
+!logs/events.json
+!logs/day3_frame_sync_results.json
 runs/*
 !runs/.gitkeep
 
