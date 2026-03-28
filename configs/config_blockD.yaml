@@ -14,7 +14,6 @@ anomaly_methods:
   - isolation_forest
 datasets:
   primary: ai_city
-  supplementary: tu_dat
 # Anomaly should be trained on normal data only
 ocsvm_train_on: ua_detrac_train_normal_only
 # Load the saved MinMax scaler from this path : Puts value into comparable numeric range

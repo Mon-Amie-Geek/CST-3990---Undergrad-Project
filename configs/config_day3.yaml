@@ -1,0 +1,66 @@
+# configs/config_day3.yaml
+# Day 3 - AI City + TU-DAT ingestor configuration
+# Mode of use : 
+# Windows SSD : $env:DATASET_ROOT ='D:\datasets'
+# Colab Drive : %env DATASET_ROOT=/content/drive/MyDrive/CST3990/datasets
+
+# AI  CITY
+aicity:
+  subfolder : "ai_city/AIC21-Track4-Anomaly-Detection"
+  videos_subfolder : "aic21-track4-train-data"
+  annotation_filename : "train-anomaly-results.txt"
+
+  # Confirmed from before: space-separated, NO header row, 3 columns only
+  # Format per row: video_id start_frame end_frame
+  has_header: false
+  separator: " "
+
+  # Column indices (0-based positional - not named headers)
+  col_video_id: 0 # Integer video ID matching filename (eg 2-> 2.mp4)
+  col_start: 1 # start frame : direct integer frame number
+  col_end: 2 # end frame : direct integer frame number
+  col_class: null # No class column in this file
+
+  video_filename_pattern: "{}.mp4"
+
+  # No fps conversion is applied. 0-based vs 1-based verified
+  frame_index_basis: "direct_frame_number"
+
+
+  # Block D class handling : AI City 2021 train, no class column --> All event assigned the default class.
+  # Col_class is null, all events are assigned to default class.
+  # default_class_name must appear in block_d_classes for used_in_block_d to be True
+  # Both are set to "anomaly" so all valid events enter Block D.
+  default_class_name : "anomaly"
+
+  skip_unknown_classes: false
+
+  min_free_gb: 20.0
+  scope_note : "Block D anomaly evaluation only. Not to be used in Blocks A/B/C."
+
+
+# Block D class filter must contain default_class_name ("anomaly") for all AI City events to have used_in_block_d = True
+# If labels are considered, change to ["stall", "crash"]
+block_d_classes: ["anomaly"]
+
+# FRAME SYNC CHECK
+sync:
+  # sync_ok = True if abs(pos_before_read) - annotation_frame) <= tolerance
+  offset_tolerance_frames: 1
+  # Save one QC frame per anomaly class for visual confirmation
+  qc_frames_per_class: 1
+
+# ZIP MANIFEST AUDIT LOG
+zip_manifest:
+  log_path: "logs/day3_zip_manifest.json"
+  # Maximum entries to log. Does not affect extraction
+  max_entries_to_log: 200
+
+# EXECUTION PATTERN
+execution: >
+  python -m src.ingestor_aicity from repo root (Windows SSD and Colab).
+
+  Consistent with Day 1 and Day 2 execution rules. No sys. path manipulation
+
+
+
