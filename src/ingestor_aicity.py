@@ -671,7 +671,7 @@ def run_aicity_ingestor():
     cfg = load_config()
     paths = resolve_aicity_paths(cfg)
 
-    log.info(f"DATASET_ROOT: {os.envirom.get('DATASET_ROOT', 'NOT SET')}")
+    log.info(f"DATASET_ROOT: {os.environ.get('DATASET_ROOT', 'NOT SET')}")
     log.info(f"AI City root: {paths['aicity_root']}")
     log.info(f"Videos dir: {paths['videos_dir']}")
     log.info(f"Annotation file: {paths['anno_path']}")
