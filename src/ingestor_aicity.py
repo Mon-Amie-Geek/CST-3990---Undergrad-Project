@@ -287,15 +287,16 @@ def validate_and_clamp_frames(
     return start_frame, end_frame, True
 
 # TWO-READ FRAME SYNC CHECK
-
+# Checks whether OpenCV really lands on the frame number as annotation states it should
 def verify_frame_sync(
     video_path: str, annotation_frame_id: int,
+    # unique ID for logging, allowed mismatch in frames
     event_id: str, offset_tolerance: int
 ) -> dict:
 
     """
-    After cap.set(CAP_PROP_POS_FRAMES, N), OpenCV's position reporting can reflect the next frame to be decpded rather 
-    than the frame jusr set. 
+    After cap.set(CAP_PROP_POS_FRAMES, N), OpenCV's position reporting can reflect the next frame to be decided rather 
+    than the frame just set. 
     Recording both:
         pos_before_reas: position after seek, before cap.read()
         pos_after_read : position after cap.read() - redahead shift
@@ -304,13 +305,15 @@ def verify_frame_sync(
 
     readahead_shift is logged for diagnosis but does not affect pass/fail.
 
-    Saved JPEG filename encodes bothr requested & actual position => Mismatch visible without opening
+    Saved JPEG filename encodes both requested & actual position => Mismatch visible without opening
 
     Sync failure => Annotation may use a different frame indexing basis.
 
-    NOTE : Inspect saved images to confirm scene content corresponds to expectd anomaly testing
+    NOTE : Inspect saved images to confirm scene content corresponds to expected anomaly testing
 
     """
+    # Next frame to decode is reported after capset
+    # Video is opened and requested frame are sought
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, annotation_frame_id)
     pos_before_read = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
@@ -318,6 +321,7 @@ def verify_frame_sync(
     pos_after_read = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
     cap.release()
 
+    # Structured record of the sync test
     result = {
         "event_id": event_id,
         "video": os.path.basename(video_path),
@@ -330,6 +334,7 @@ def verify_frame_sync(
         "sync_ok": False,
         "note": "",
     }
+    # Frame reads fail, adds a note, logs a warning and returns failure result immediately
     if not ret or frame is None:
         result["note"] = (
             "Frame could not be read. Check video file integrity. "
@@ -343,18 +348,18 @@ def verify_frame_sync(
 
     #Filename encodes both requested and actual frame - mismatch visible
     out_name = (
-        f"sync_{event_id}"
-        f"req{annotation_frame_id:06d}"
-        f"got{pos_before_read:06d}.jpg"
+        f"sync_{event_id}_req{annotation_frame_id:06d}_got{pos_before_read:06d}.jpg"
     )
-    out_path = os.path.join(SYNC_CHECK_DIR , out_name)
+    # Sync-check frame is saved and path is recorded
+    out_path = os.path.join(SYNC_CHECK_DIR, out_name)
     cv2.imwrite(out_path, frame)
     result["frame_saved"] = True
     result["frame_path"] = out_path
-
+    # Checks whether mismatch is within allowed number of frames
     offset = abs(result["offset_before_read"])
     result["sync_ok"] = (offset <= offset_tolerance)
 
+    # Logs a succesful sync check
     if result["sync_ok"]:
         log.info(
             f" [SYNC OK] {event_id} | "
@@ -362,11 +367,12 @@ def verify_frame_sync(
             f"offset={result['offset_before_read']} "
             f"readahead={result['readahead_shift']}"
         )
+    # Failure is explained
     else:
         result["note"] = (
             f"Offset {result['offset_before_read']} exceeds tolerance "
             f"{offset_tolerance}. Possible 0-based vs 1-based mismatch. "
-            f"Inspect imahe: {out_name}"
+            f"Inspect image: {out_name}"
         )
         log.error(
             f"[SYNC FAIL] {event_id} | "
@@ -377,6 +383,7 @@ def verify_frame_sync(
     return result
 
 # QC FRAME SAVE
+# Defines a function to save a QC image for visual checking
 def save_qc_frame(
         video_path: str, start_frame: int,
         event_id: str, fps: float
@@ -385,24 +392,30 @@ def save_qc_frame(
     Saving annotated frame at anomaly start for visual QC.
     NOTE : Run for first event of each anomaly class only (config-controlled).
     """
-
+    # Opens the video, jumps to the anomaly start frame, reads it, closes file.
     cap = cv2.VideoCapture(video_path)
     cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
     ret, frame = cap.read()
     cap.release()
     
+    # Returns empty string if QC frame could not be read
     if not ret or frame is None:
         log.warning(f"[QC] Cannot read QC frame for {event_id}")
         return ""
 
+    # Builds label text to draw on image
     label = (
         f"Day 3 QC | {event_id} | "
         f"frame={start_frame} | fps={fps:.2f}"
     )
+
+    # writes the QC label on the frame
     cv2.putText(
         frame, label, (10,40),
         cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255, 0), 2
     )
+
+    # Saves QC image and returns path
     out_path = os.path.join(QC_DIR, f"qc_{event_id}.jpg")
     cv2.imwrite(out_path, frame)
     log.info(f" [QC] → {out_path}")
@@ -410,6 +423,7 @@ def save_qc_frame(
     return out_path
 
 # ANNOTATUON PARSER
+# Reads the annotation file and converts rows into event records
 def parse_annotations(
         anno_path: str, videos_dir: str, cfg: dict
 ) -> tuple:
@@ -423,9 +437,9 @@ def parse_annotations(
         No class column. AI rows represent anomaly events.
 
     Block D class handling:
-    col_class is null in config => skip unknown_classes is irrelevant.
+    col_class is null in config => skip_unknown_classes is irrelevant.
     All rows receive anomaly_class_name = default_class_name
-    block_d_classes = ["anomaly] => used_in_block_d = True for all.
+    block_d_classes = ["anomaly"] => used_in_block_d = True for all.
     anomaly_classes map is retained but not applied during parsing
 
     Multiple rows with same video_id are supported
@@ -434,14 +448,16 @@ def parse_annotations(
     UA-DETRAC's CLASS_MAP does not interact with AI City
 
     Returns: events, sync_results, video_meta, skipped_rows
-    skipped_rows contains one dict perskipped row : These are logged to events.json for examiner transparency. 
+    skipped_rows contains one dict per skipped row : These are logged to events.json for examiner transparency. 
     """
+    # Stops annotation if file is missing
     if not os.path.isfile(anno_path):
         raise FileNotFoundError(
             f"Annotation file not found: {anno_path}\n"
             f"Complete extraction process before running the ingestor.\n"
             f"Expected: AIC21-Track4-Anomaly-Detection/train-anomaly-results.txt"
         )
+    # Loads config values for parsing
     ai_cfg = cfg["aicity"]
     col_vid = ai_cfg["col_video_id"]
     col_start = ai_cfg["col_start"]  
@@ -459,8 +475,9 @@ def parse_annotations(
     # anomaly_classes map is NOT used for row parsing when col_class is None
     # Retained for reference only.
 
-    anomaly_map = cfg.get("anomaly_class", {})
+    anomaly_map = cfg.get("anomaly_classes", {})
 
+    # Initialising containers, prepares storage for results, logs and counters
     events = []
     sync_results = []
     video_meta = {} # keyed by video filename
@@ -469,23 +486,28 @@ def parse_annotations(
     skipped_rows = [] # rows not converted to events
     raw_line_count = 0 # total non-empty lines parsed
 
+    # Reads annotation file into memory
     with open(anno_path, "r", encoding="utf-8") as f:
         lines = f.readlines()
 
+    # Skips header if config says there is one
     if has_header and lines:
         log.info(f"Header row skipped: '{lines[0].strip()}'")
         lines = lines[1:]
     log.info(f"Non-header lines to parse: {len(lines)}")
 
-    for line_idx, raw_line in enumerate(line):
+    # Removes whitespace and skips empty lines
+    for line_idx, raw_line in enumerate(lines):
         line = raw_line.strip()
         if not line:
             continue
         raw_line_count += 1
         
+        # Splits a row into a list
         parts = line.split()
 
         # Determine minimum required columns
+        # Checks that row has enough columns
         required_cols = max(col_vid, col_start, col_end) + 1
         if len(parts) < required_cols:
             reason = f"too few columns: got {len(parts)}, need {required_cols}"
@@ -493,7 +515,7 @@ def parse_annotations(
             skipped_rows.append({"row": line_idx, "line":line, "reason": reason})
             continue
 
-        # Parse video ID
+        # Parse video ID - Converts video ID text to integer
         try:
             vid_int = int(parts[col_vid])
         except ValueError:
@@ -506,6 +528,7 @@ def parse_annotations(
         video_fname = vid_pattern.format(vid_int)
         video_path = os.path.join(videos_dir, video_fname)
 
+        # Skips rows whose referenced video has not been extracted yet
         if not os.path.isfile(video_path):
             reason = (
                 f"video not found: {video_fname}. "
@@ -517,6 +540,8 @@ def parse_annotations(
             continue
         
         # Probe video metadata - once per filename
+        # Reads fps, frame count, duration etc only once per video
+        # # If probing fails, stored None so repeated rows for same video don't repeatedly re-probe it
         if video_fname not in video_meta:
             try:
                 meta = probe_video(video_path)
@@ -527,6 +552,7 @@ def parse_annotations(
                     f"duration={meta['duration_sec']}s "
                     f"({meta['codec_source']})"
                 )
+            
             except (ValueError, RuntimeError) as exc:
                 reason = f"video probe failed: {exc}"
                 log.error(f" Row {line_idx}: {reason}")
@@ -545,6 +571,7 @@ def parse_annotations(
             continue
 
         # Parse frame indices - direct integers, no fps conversion
+        # Read start and end frame from row
         try:
             start_frame = int(parts[col_start])
             end_frame = int(parts[col_end])
@@ -572,13 +599,14 @@ def parse_annotations(
             class_raw = None
             class_name = default_class
 
+        # Marks whether this event should be used in Block D
         in_block_d = class_name in block_d_classes
 
         # Include line_idx in event_id to distinguish duplicate video_id rows
         event_id = f"ev{line_idx:04d}_{vid_int}_{class_name}"
 
         # Frame bounds validation
-
+        # Checks frame numbers and clamps them if needed
         total_frames = meta["frame_count"]
         start_frame, end_frame, valid = validate_and_clamp_frames(
             start_frame, end_frame, total_frames, event_id
@@ -589,7 +617,7 @@ def parse_annotations(
                 "reason": "invalid frame bounds after validation"
             })
             continue
-        # sync check, first check per video only
+        # sync check, first check per video only - To be reused for later events in same video
         is_first_for_video = video_fname not in synced_videos
         if is_first_for_video:
             sync_r = verify_frame_sync(
@@ -597,7 +625,7 @@ def parse_annotations(
             )
             sync_results.append(sync_r)
             synced_videos.add(video_fname)
-            syn_outcome = sync_r["sync_ok"]
+            sync_outcome = sync_r["sync_ok"]
         else:
             # Inherit sync outcome from the first check for this video
             prior = next(
@@ -606,10 +634,10 @@ def parse_annotations(
             )
             sync_outcome = prior["sync_ok"] if prior else None
 
-        #QC frame - first N events per class
+        # Save QC frame - first N events per class
         qc_done.setdefault(class_name, 0)
         if qc_done[class_name] < qc_per_class:
-            save_qc_frame(video_path, start_frame, event_id, ["fps"])
+            save_qc_frame(video_path, start_frame, event_id, meta["fps"])
             qc_done[class_name] += 1
                 
         # Build event record
@@ -644,10 +672,10 @@ def parse_annotations(
     log.info(f"Annotation rows processed (non-empty): {raw_line_count}")
     log.info(f" Valid events produced: {len(events)}")
     log.info(f" Rows skipped: {len(skipped_rows)}")
-    log.info(f" Block D events: {sum(1 for e in event if e ['used_in_block_d'])}")
+    log.info(f" Block D events: {sum(1 for e in events if e ['used_in_block_d'])}")
     log.info(f" Unique videos probed: {len([v for v in video_meta if video_meta[v] is not None])}")
 
-    # Save snyc results
+    # Save snyc results - Writes day3_frame_sync_results.json
     sync_path = os.path.join(LOGS_DIR, "day3_frame_sync_results.json")
     with open(sync_path, "w") as f:
         json.dump(sync_results, f, indent=2)
@@ -668,9 +696,11 @@ def run_aicity_ingestor():
     log.info("Day 3 - AI City Track 4 (2021) Ingestor")
     log.info("=" * 60)
     
+    # Loads YAML config and computes actual file paths
     cfg = load_config()
     paths = resolve_aicity_paths(cfg)
 
+    # Help diagnose wrong paths
     log.info(f"DATASET_ROOT: {os.environ.get('DATASET_ROOT', 'NOT SET')}")
     log.info(f"AI City root: {paths['aicity_root']}")
     log.info(f"Videos dir: {paths['videos_dir']}")
@@ -678,12 +708,14 @@ def run_aicity_ingestor():
 
     check_disk_space(paths["aicity_root"], cfg["aicity"]["min_free_gb"])
 
+    # Logs an error and exits if AI City root folder is missing
     if not os.path.isdir(paths["aicity_root"]):
         log.error(
             f"AI City root not found: {paths['aicity_root']}\n"
             f"Complete extraction before running the ingestor."
         )
         return
+    
     #Zip manifest - find  zip in ai_city if still present
     ai_city_dir = os.path.join(
         os.environ.get("DATASET_ROOT", ""), "ai_city"
@@ -697,13 +729,14 @@ def run_aicity_ingestor():
     else:
         log.info("No zip file found for manifest - skipping(already extracted)")
     
-    # Run parser
+    # Calls the parsing function and collects all outputs
     events, sync_results, video_meta, skipped, raw_line_count = parse_annotations(
         paths["anno_path"],
         paths["videos_dir"],
         cfg,
     )
 
+    # Warns if no events were produced
     if not events:
         log.warning(
             "No events parsed. Possible causes:\n"
@@ -713,6 +746,7 @@ def run_aicity_ingestor():
             "Re-check and re-run"
         )
         return
+    
     # WRITE events.json
     output = {
         "schema_version": "1.0",
@@ -726,13 +760,13 @@ def run_aicity_ingestor():
         "block_d_class_note": (
             "No class column in annotation file."
             "All events assigned anomaly_class_name='anomaly'. "
-            "block_d_classes=['anomaly] so used_in_block_d=True for all valid events. "
+            "block_d_classes=['anomaly'] so used_in_block_d=True for all valid events. "
             "anomaly_classes map (stall/crash/etc.) retained in config for future use "
             "if per-event class labels are discovered."
         ),
         "anomaly_schema_note": (
             "anomaly_class_name is an event-level label. "
-            "Complelety separate from UA-DETRAC object-detection CLASS_MAP."
+            "Completely separate from UA-DETRAC object-detection CLASS_MAP."
         ),
         "sync_check_note": "Added two-read method. See day3_frame_sync_results.json.",
         "github_note": "events.json committed to Github. Raw videos stay on SSD only.",
@@ -798,8 +832,8 @@ def run_aicity_ingestor():
         log.info(f" [{'PASS' if passed else 'FAIL'}] {label}")
     log.info("")
     log.info(" MANUAL CHECKS - Confirm personally:")
-    log.info(" [] Sync images visually inspected in dya3_sync_checks/")
-    log.info(" Open imaages and confirm scene matches annotation frame.")
+    log.info(" [] Sync images visually inspected in day3_sync_checks/")
+    log.info(" Open images and confirm scene matches annotation frame.")
     log.info("[] All file sources pushed to Github")
     log.info("[] Notebook saved to drive")
     log.info("[] Raw AI City videos confirmed NOT committed to Github")
