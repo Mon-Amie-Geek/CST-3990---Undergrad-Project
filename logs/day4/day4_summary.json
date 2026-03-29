@@ -1,0 +1,26 @@
+{
+  "day": 4,
+  "title": "Temporal & Spatial Normalisation",
+  "fixes": [
+    "All temporal windows in seconds, converted to frames at runtime",
+    "FPS always extracted from video metadata, never hardcoded",
+    "Disclaimer on every spatial proxy function",
+    "Warmup = max(warmup_min_frames, int(warmup_sec * fps))",
+    "Inference resize documented, training resize explicitly forbidden"
+  ],
+  "clips_processed": [
+    "ua_detrac_MVI_20011",
+    "ai_city_2"
+  ],
+  "all_criteria_met": false,
+  "day3_outputs_verified": false,
+  "outputs_written": [
+    "logs/day4/normalisation_contexts.json",
+    "logs/day4/sanity_check_results.json",
+    "logs/day4/day4_summary.json"
+  ],
+  "velocity_unit": "px_per_sec_normalised",
+  "note_warmup": "Warmup frames computed and exported here. Enforcement inside feature extraction loop is Day 10.",
+  "note_downstream": "normalisation_contexts.json designed for Days 5,10,11. End-to-end integration verified in those days. ",
+  "generated_at": "2026-03-30T01:55:37.013990"
+}

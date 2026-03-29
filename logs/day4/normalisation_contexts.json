@@ -1,0 +1,46 @@
+{
+  "ua_detrac_MVI_20011": {
+    "fps": 25.0,
+    "speed_window_sec": 0.2,
+    "speed_window_frames": 5,
+    "prox_window_sec": 2.0,
+    "prox_window_frames": 50,
+    "warmup_frames": 10,
+    "inference_resolution": [
+      640,
+      640
+    ],
+    "sequence_type": "image_sequence",
+    "frame_width": 960,
+    "frame_height": 540,
+    "frame_diagonal": 1101.4536,
+    "perspective_disclaimer": "Distance values are image-space proxies, normalised by frame diagonal.Perspective effects mean pixel distance does not linearly represent physical distance. Values are interpreted as relative behavioural indicators. Acknowledged as validity. ",
+    "image_plane_velocity_note": "Velocity is computed in image-space (px/s), not world-space (m/s). Near-camera objects appear faster than far-background objects at the same physical speed. Values are relative behavioural indicators, not absolute km/h. Acknowledged as validity. ",
+    "velocity_unit": "px_per_sec_normalised",
+    "sequence_id": "img00001",
+    "video_path": "D:\\datasets\\ua_detrac\\raw\\MVI_20011\\img00001.jpg",
+    "built_at": "2026-03-30T01:55:36.826143"
+  },
+  "ai_city_2": {
+    "fps": 30.0,
+    "speed_window_sec": 0.2,
+    "speed_window_frames": 6,
+    "prox_window_sec": 2.0,
+    "prox_window_frames": 60,
+    "warmup_frames": 12,
+    "inference_resolution": [
+      640,
+      640
+    ],
+    "sequence_type": "video_file",
+    "frame_width": 800,
+    "frame_height": 410,
+    "frame_diagonal": 898.9438,
+    "perspective_disclaimer": "Distance values are image-space proxies, normalised by frame diagonal.Perspective effects mean pixel distance does not linearly represent physical distance. Values are interpreted as relative behavioural indicators. Acknowledged as validity. ",
+    "image_plane_velocity_note": "Velocity is computed in image-space (px/s), not world-space (m/s). Near-camera objects appear faster than far-background objects at the same physical speed. Values are relative behavioural indicators, not absolute km/h. Acknowledged as validity. ",
+    "velocity_unit": "px_per_sec_normalised",
+    "sequence_id": "2",
+    "video_path": "D:\\datasets\\ai_city\\AIC21-Track4-Anomaly-Detection\\aic21-track4-train-data\\2.mp4",
+    "built_at": "2026-03-30T01:55:36.972794"
+  }
+}

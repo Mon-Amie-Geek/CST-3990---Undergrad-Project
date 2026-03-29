@@ -1,0 +1,60 @@
+# configs/config_day4.yaml
+# Day 4 - Temporal & Spatial Normalisation
+# All paths are subfolders under DATASET_ROOT (env variable)
+# Fixed : Temporal windows declared in seconds only
+# Fixed : FPS always from cv2.CAP_PROP_FPS
+# Fixed : Perspective limitation acknowledgement
+
+normalisation:
+  speed_window_sec: 0.2
+  prox_window_sec: 2.0
+  warmup_sec: 0.4
+  # Floor regardless of FPS
+  warmup_min_frames: 10
+  # Inference only, no training
+  inference_resolution: [640, 640]
+
+fps_validation:
+  suspicious_min: 1.0
+  suspicious_max: 120.0
+
+# Referenced in thesis
+perspective_disclaimer:
+  "Distance values are image-space proxies normalised by frame diagonal.
+  Perspective effects mean pixel distance does not linearly represent
+  physical distance. Values are interpreted as relative behavioural
+  indicators only."
+
+# Dataset subfolders under DATASET_ROOT
+ua_detrac:
+  subfolder: "ua_detrac/raw"
+  sample_clip: "MVI_20011"
+
+ai_city:
+  subfolder: "ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data"
+  sample_clip: "2"
+
+# Day 3 output files verified by Day 4
+day3_outputs:
+  events_json: "logs/events.json"
+  frame_sync_json: "logs/day3_frame_sync_results.json"
+
+# Day 4 outputs
+
+output:
+  dir: "logs/day4"
+  normalisation_contexts: "logs/day4/normalisation_contexts.json"
+  sanity_check_results: "logs/day4/sanity_check_results.json"
+  day4_summary: "logs/day4/day4_summary.json"
+
+# Sanity check settings
+sanity_check:
+  # First frame for centroid extraction
+  frame_a: 50
+  # Second frame for centroid extraction
+  frame_b: 60
+  # Min delta_px to consider motion real
+  min_motion_px: 1.0
+
+
+

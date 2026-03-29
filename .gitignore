@@ -39,9 +39,7 @@ models/*
 # -----------------------------------------------
 detections_cache/*
 !detections_cache/.gitkeep
-logs/*
 !logs/.gitkeep
-!logs/events.json
 !logs/day3_frame_sync_results.json
 runs/*
 !runs/.gitkeep
