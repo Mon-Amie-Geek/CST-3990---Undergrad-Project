@@ -1,16 +1,28 @@
 {
-  "timestamp": "2026-03-30T03:40:05.638393",
+  "timestamp": "2026-03-30T04:24:29.919038",
   "epsilon_guard_ok": true,
   "formula_consistency_ok": true,
   "overall_passed": true,
   "dataset_results": {
     "ua_detrac": {
-      "status": "video_not_found",
-      "path_attempted": "D:\\datasets\\ua_detrac\\raw\\MVI_20011"
+      "status": "error",
+      "message": "Could not read frames 50 and 60 from D:\\datasets\\ua_detrac\\raw\\MVI_20011\\img00001.jpg. File may be too short or corrupted."
     },
     "ai_city": {
-      "status": "video_not_found",
-      "path_attempted": "D:\\datasets\\ai_city\\AIC21-Track4-Anomaly-Detection\\aic21-track4-train-data\\2"
+      "status": "ok",
+      "clip_id": "2",
+      "video_path": "D:\\datasets\\ai_city\\AIC21-Track4-Anomaly-Detection\\aic21-track4-train-data\\2.mp4",
+      "fps": 30.0,
+      "frame_size": "800x410",
+      "centroid_method": "largest_contour_centroid",
+      "motion_detected": true,
+      "delta_px": 103.5,
+      "delta_frames": 10,
+      "vel_px_sec_correct": 310.5,
+      "vel_px_frame_wrong": 10.35,
+      "ratio_correct_vs_wrong": 30.0,
+      "perspective_disclaimer": "Distance values are image-space proxies, normalised by frame diagonal.Perspective effects mean pixel distance does not linearly represent physical distance. Values are interpreted as relative behavioural indicators. Acknowledged as validity. ",
+      "image_plane_velocity_note": "Velocity is computed in image-space (px/s), not world-space (m/s). Near-camera objects appear faster than far-background objects at the same physical speed. Values are relative behavioural indicators, not absolute km/h. Acknowledged as validity. "
     }
   },
   "scientific_note": "Cross-dataset velocity ratio is NOT enforced as a hard threshold. Different frame sizes and scene perspectives make direct vel_px_sec comparison between datasets inherently non-comparable. Validation is formula-correctness and epsilon-guard only. See thesis \u00a73.8.2 for construct validity discussion.",
