@@ -133,19 +133,24 @@ def parse_annotation_xml(xml_path, seq_id):
         for target in frame_elem.findall(".//target"):
 
             # Get the <attribute> tag. Skip if missing.
-            attr = target.find("attribute")
-            if attr is None:
-                continue
-            try:
+            occ_tag = target.find("occlusion")
+            if occ_tag is None:
+                occ = 0 # No occlusion tag - vehicle is clear
+                
+            else:
                 # Read occlusion level
-                occ = int(float(attr.get("occlusion", "0")))
-            except (TypeError, ValueError):
-                occ = 0
+                region = occ_tag.find("region_overlap")
+                if region is None:
+                    occ = 0
+                else:
+                    status = region.get("occlusion_status", "0")
+                    occ = 1 if status == "0" else 2
+
             if occ not in INCLUDE_OCCLUSION:
-                continue # skips heavy and full occlusion
+                continue
 
             # Vehicle type filter
-            vtype = attr.get("vehicle_type", "car")
+            vtype = occ_tag.get("vehicle_type", "car")
             vtype = str(vtype).strip().lower()
             if vtype not in CLASS_MAP:
                 continue # Unknown type - skip safely
