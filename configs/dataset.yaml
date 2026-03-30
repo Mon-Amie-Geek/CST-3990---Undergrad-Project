@@ -1,14 +1,20 @@
 # configs/dataset.yaml
 # Created as early preparation - To be actively used for YOLOv8n training
 
-path: data/ua_detrac/processed
+path: /content/project/data/ua_detrac/processed
 train: images/train
 val: images/val
 test: images/test
 
 nc: 1
-namess: ['vehicle']
+names: ['vehicle']
 
-# Training resolution : original 960x540
-# NOTE : Do NOT manually resize frames before training - this distorts bounding box coordinates. YOLO handles internal resizing during training
+# Training resolution : original 960x540 - No manual resize
+# Inference at 640x640 - Declared in config_blockA.yaml
+# Occlusion filter [0,1] - occ 2/3 excluded during ingestion.
+# File is required for YOLO Training
+# seed=42 passed to model.train() separately
+# conf=0.25 , nms=0.45 - Identical across both detectors
+# <class_id> <cx> <cy> <w> <h> : All values normalised 0-1
+
 

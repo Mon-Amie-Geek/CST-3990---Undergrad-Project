@@ -2,26 +2,67 @@
 # Block A - Detector Comparison Configuration
 
 dataset: ua_detrac
-sequences: clips_master.txt
-train_resolution: original
+sequences_file: data/ua_detrac/clips_master.txt
+dataset_yaml: configs/dataset.yaml
+
+# Resolution
+train_resolution: original_960x540
 # 640 - Common size, specially for YOLO
 infer_resolution: [640, 640]
 # Treat all vehicles as one
-class_map:
-  Car: 0
-  Van: 0
-  Bus: 0
-  Others: 0
+class_map: {Car: 0, Van: 0, Bus: 0. Others: 0}
+nc: 1
+names:[vehicle]
+
 # 0 : Visible/minimal occlusion, 1 : Mild occlusion
 occlusion_filter: [0, 1]
+split_source: official_train_set_only
+splits: {train:0.70, val:0.15, test:0.15}
+
 conf_thresh: 0.25
 #Non-maximum Suppression threshold: How overlapping boxes are filtered
 nms_thresh: 0.45
+
+# Warmup policy
+warmup_policy: "max(10, int(0.4 * fps))"
+
+training:
+  model: yolov8n.pt
+  epochs: 50
+  imgsz: 960
+  batch: 8
+  patience: 10
+  optimiser: AdamW
+  seed: 42
+  augmentation: yolo_default_no_manual_resize
+  project: runs/train
+  name: yolov8n_ua_detrac_v1
+  output_dir: runs/train/yolov8n_ua_detrac_v1/
+  expected_runtime:
+    T4_gpu: "2.0-2.5 hours"
+    P100_gpu: "1.5-2.0 hours"
+    A100_gpu: "0.8-1.2 hours"
+
+# Output paths:
+
+weights_best: runs/train/yolov8n_ua_detrac_v1/weights/best.pt
+detections_cache: detections_cache/
+detector_schema: configs/detector_output_schema.json
+
+# Reproducibility
+seed: 42
+
+notes:
+  - "Detection cache populated Day 6 — EMPTY on Day 5"
+  - "Training resolution 960x540, inference 640x640"
+  - "No fine-tuning of SSD300 — evaluated directly"
 splits:
   train: 0.70
   val: 0.15
   test: 0.15
 split_source: official_train_set_only
-seed: 42
+
 # Ignore/Stabilise first 10 frames
-warmup_frames: 10
+warmup_policy: "max(10, int(0.4 * fps))"
+warmup_minimum: 10
+warmup_note: "value varies per clip FPS — see logs/warmup_frames_log.json"

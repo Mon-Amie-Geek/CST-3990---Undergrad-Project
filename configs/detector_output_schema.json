@@ -1,0 +1,35 @@
+{
+  "description": "Frozen detector output schema — Day 5. All Block B trackers consume this format exactly. Kept intact as from Day 5.",
+  "version": "1.0",
+  "frozen_day": "Day 5",
+  "consumed_by": ["SORT (Day 7)", "DeepSORT (Day 8)", "ByteTrack (Day 8)"],
+  "cache_location": "detections_cache/{split}/{detector}/{seq_id}.json",
+  "cache_populated_by": "Day 6 — AFTER best.pt confirmed. NOT Day 5.",
+  "per_frame_schema": {
+    "frame_idx": "int — 0-based frame index",
+    "timestamp_sec": "float — frame_idx divided by fps from metadata.json",
+    "detections": [
+      {
+        "bbox": "[x1, y1, x2, y2] — pixel coords at 640x640 inference resolution",
+        "conf": "float — confidence score after conf_thresh=0.25 applied",
+        "class_id": "int — always 0 (Vehicle)"
+      }
+    ]
+  },
+  "example_frame": {
+    "frame_idx": 145,
+    "timestamp_sec": 5.80,
+    "detections": [
+      {"bbox": [120.5, 80.2, 340.1, 210.8], "conf": 0.87, "class_id": 0},
+      {"bbox": [450.0, 120.3, 600.7, 230.1], "conf": 0.73, "class_id": 0}
+    ]
+  },
+  "critical_notes": [
+    "bbox at INFERENCE resolution 640x640 — not original 960x540",
+    "frame_idx is 0-based — AI City 1-based sync check applied in Day 3",
+    "conf=0.25 and nms=0.45 applied BEFORE writing to cache",
+    "warmup frames stripped BEFORE writing to cache",
+    "cache populated ONCE on Day 6 — read-only after that",
+    "Thesis note: training 960x540, inference 640x640 declared separately"
+  ]
+}
