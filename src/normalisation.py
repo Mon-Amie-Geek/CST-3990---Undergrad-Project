@@ -381,7 +381,9 @@ def build_clip_normalisation_context(video_path: str, cfg: dict) -> dict:
         "perspective_disclaimer": PERSPECTIVE_DISCLAIMER,
         "image_plane_velocity_note": IMAGE_PLANE_VELOCITY_NOTE,
         "velocity_unit": "px_per_sec_normalised",
-        "sequence_id": Path(video_path).stem,
+        "sequence_id": Path(video_path).parent.name
+              if Path(video_path).suffix.lower() in [".jpg", ".jpeg", ".png"]
+              else Path(video_path).stem,
         "video_path": str(video_path),
         "built_at": datetime.now().isoformat()  
     }
