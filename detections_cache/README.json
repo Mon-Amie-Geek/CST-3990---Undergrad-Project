@@ -1,0 +1,16 @@
+{
+  "purpose": "Detection cache — run each detector ONCE, all Block B trackers read from here. Fix F10.",
+  "populated_by": {
+    "yolov8n": "Day 6 — after best.pt confirmed from Day 5 training",
+    "ssd300": "Day 6 — after SSD300 COCO pretrained evaluation"
+  },
+  "schema_file": "configs/detector_output_schema.json",
+  "file_naming": "detections_cache/{split}/{detector}/{seq_id}.json",
+  "frozen_after": "Day 6 — do not overwrite after this point",
+  "examiner_note": "Cache is intentionally EMPTY at Day 5. Populated on Day 6 after training confirmed. Required ordering per Fix F10.",
+  "critical_warnings": [
+    "NEVER re-run detector during Block B, C, or D",
+    "All trackers (SORT, DeepSORT, ByteTrack) read from cache only",
+    "Overwriting cache after Day 6 invalidates all Block B results"
+  ]
+}

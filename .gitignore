@@ -33,14 +33,20 @@ models/*
 *.pt
 *.pth
 *.pkl
+!models/minmax_scaler.pkl
 
 # -----------------------------------------------
 # CACHE, LOGS, RUNS — generated at runtime
 # -----------------------------------------------
-detections_cache/*
+detections_cache/**/*.json
+!detections_cache/README.json
 !detections_cache/.gitkeep
+
 !logs/.gitkeep
 !logs/day3_frame_sync_results.json
+!logs/warmup_frames_log.json
+!logs/map_yolov8n_per_sequence.json
+
 runs/*
 !runs/.gitkeep
 
