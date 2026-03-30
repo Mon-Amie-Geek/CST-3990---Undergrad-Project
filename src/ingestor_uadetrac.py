@@ -42,7 +42,7 @@ import argparse
 
 IMAGE_WIDTH  = 960
 IMAGE_HEIGHT = 540
-CLASS_MAP    = {"Car": 0, "Van": 0, "Bus": 0, "Others": 0}
+CLASS_MAP    = {"car": 0, "van": 0, "bus": 0, "others": 0}
 # Consider clear vehicles and partially hidden vehicles.
 INCLUDE_OCCLUSION = {0, 1}
 # If FPS missing, use 25.0 as fallback
@@ -145,7 +145,8 @@ def parse_annotation_xml(xml_path, seq_id):
                 continue # skips heavy and full occlusion
 
             # Vehicle type filter
-            vtype = attr.get("vehicle_type", "Car")
+            vtype = attr.get("vehicle_type", "car")
+            vtype = str(vtype).strip().lower()
             if vtype not in CLASS_MAP:
                 continue # Unknown type - skip safely
 
@@ -170,6 +171,8 @@ def parse_annotation_xml(xml_path, seq_id):
                 "width": width,
                 "height": height,
                 "class_id": CLASS_MAP[vtype],
+                "occlusion": occ,
+                "vehicle_type": vtype,
             })
         # Save all boxes under that frame number
         frames_dict[frame_num] = targets
