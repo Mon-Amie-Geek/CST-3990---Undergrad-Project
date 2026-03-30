@@ -150,10 +150,10 @@ def parse_annotation_xml(xml_path, seq_id):
                 continue
 
             # Vehicle type filter
-            vtype = occ_tag.get("vehicle_type", "car")
-            vtype = str(vtype).strip().lower()
-            if vtype not in CLASS_MAP:
-                continue # Unknown type - skip safely
+            attr = target.find("attribute")
+            if attr is None:
+                continue
+            vtype = attr.get("vehicle_type", "car")
 
             # Get bounding box info. If missing, count an error.
             box = target.find("box")
