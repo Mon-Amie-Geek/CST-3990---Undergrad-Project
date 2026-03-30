@@ -10,7 +10,7 @@ train_resolution: original_960x540
 # 640 - Common size, specially for YOLO
 infer_resolution: [640, 640]
 # Treat all vehicles as one
-class_map: {Car: 0, Van: 0, Bus: 0. Others: 0}
+class_map: {Car: 0, Van: 0, Bus: 0, Others: 0}
 nc: 1
 names:[vehicle]
 
