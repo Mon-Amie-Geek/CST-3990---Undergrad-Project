@@ -1,13 +1,13 @@
 # configs/dataset.yaml
 # Created as early preparation - To be actively used for YOLOv8n training
 
-path: /content/project/data/ua_detrac/processed
+path: /content/drive/MyDrive/CST3990/data/ua_detrac/processed
 train: images/train
 val: images/val
 test: images/test
 
 nc: 1
-names: ['vehicle']
+names: ['Vehicle']
 
 # Training resolution : original 960x540 - No manual resize
 # Inference at 640x640 - Declared in config_blockA.yaml
