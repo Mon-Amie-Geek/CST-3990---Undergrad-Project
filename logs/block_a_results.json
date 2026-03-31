@@ -1,0 +1,75 @@
+{
+  "description": "Block A \u2014 Detector Comparison Results",
+  "day": "Day 6",
+  "dataset": "UA-DETRAC",
+  "evaluation_split": "test only",
+  "test_sequences": [
+    "MVI_20062",
+    "MVI_20063"
+  ],
+  "all_sequences_cached": [
+    "MVI_20011",
+    "MVI_20012",
+    "MVI_20032",
+    "MVI_20034",
+    "MVI_20035",
+    "MVI_20051",
+    "MVI_20052",
+    "MVI_20061",
+    "MVI_20062",
+    "MVI_20063"
+  ],
+  "evaluation_iou_threshold": 0.5,
+  "conf_thresh": 0.25,
+  "nms_thresh": 0.45,
+  "inference_hardware": "Google Colab T4 GPU (Tesla T4, 15.6 GB)",
+  "hardware_note": "FPS measured on Colab T4 GPU. Day 17 latency profiling will re-run on Surface Pro 7 CPU as the declared deployment-class hardware. Do not compare these FPS values directly with Day 17 numbers.",
+  "selection_rule": {
+    "primary": "mAP50 on test split \u2014 if delta > 0.05",
+    "secondary": "FPS p50 \u2014 if mAP50 within 0.05",
+    "tertiary": "Domain advantage (fine-tuned on UA-DETRAC)"
+  },
+  "resolution_note": "SSD300 natively processes 300x300 inputs. YOLOv8n was trained at 960x540 and evaluated at 640x640. All bboxes are stored in 640x640 coordinate space for schema consistency. This resolution asymmetry is a construct validity limitation declared in \u00a73.8.2.",
+  "detectors": {
+    "yolov8n": {
+      "weights": "models/yolov8n_ua_detrac_v1_best.pt",
+      "fine_tuned": true,
+      "training_dataset": "UA-DETRAC train split (official sequences)",
+      "train_imgsz": 960,
+      "infer_imgsz": 640,
+      "mAP50": 0.6674,
+      "mAP50-95": 0.4506,
+      "precision": 0.7679,
+      "recall": 0.7703,
+      "fps_p50": 47.2,
+      "fps_mean": 47.2,
+      "latency_p95_ms": 25.1,
+      "cache_paths": {
+        "train": "detections_cache/train/yolov8n/",
+        "val": "detections_cache/val/yolov8n/",
+        "test": "detections_cache/test/yolov8n/"
+      }
+    },
+    "ssd300": {
+      "weights": "COCO pretrained \u2014 SSD300_VGG16_Weights.COCO_V1",
+      "fine_tuned": false,
+      "training_dataset": "COCO (no UA-DETRAC fine-tuning \u2014 Fix F06)",
+      "train_imgsz": "N/A (pretrained)",
+      "infer_imgsz": 300,
+      "mAP50": 0.316,
+      "mAP50-95": 0.2152,
+      "precision": 0.2801,
+      "recall": 0.5582,
+      "fps_p50": 25.6,
+      "fps_mean": 24.3,
+      "latency_p95_ms": 51.2,
+      "cache_paths": {
+        "train": "detections_cache/train/ssd300/",
+        "val": "detections_cache/val/ssd300/",
+        "test": "detections_cache/test/ssd300/"
+      }
+    }
+  },
+  "selected_detector": "yolov8n",
+  "selection_reason": "mAP50 difference 0.3514 > threshold 0.05. YOLOv8n=0.6674, SSD300=0.316. Accuracy criterion dominates."
+}
