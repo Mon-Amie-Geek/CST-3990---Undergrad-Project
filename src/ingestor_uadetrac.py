@@ -102,6 +102,25 @@ def jpg_to_frame_num(filename):
     except ValueError:
         return None
 
+def get_jpg_frames(seq_id, images_dir):
+    import glob, os
+
+    seq_dir = os.path.join(images_dir, seq_id)
+
+    if not os.path.isdir(seq_dir):
+        raise FileNotFoundError(seq_dir)
+
+    jpg_paths = sorted(glob.glob(os.path.join(seq_dir, "*.jpg")))
+
+    if len(jpg_paths) == 0:
+        raise ValueError(f"No JPG files in {seq_dir}")
+
+    return list(enumerate(jpg_paths))
+
+
+def get_warmup_frames(fps):
+    return max(10, int(0.4 * fps))
+
 
 # HELPER - XML parser with error counters
 
@@ -229,7 +248,7 @@ def ingest_sequence(seq_id, images_dir, xml_path, out_images_dir, out_labels_dir
     fps, fps_source = get_fps_from_xml(xml_root, seq_id)
 
     # Compute how many initial frames to skip
-    warmup_frames = max(10, int(0.4 * fps))
+    warmup_frames = get_warmup_frames(fps)
     print(f" Warmup frames : {warmup_frames}")
     # Explains fallback behaviour
     if fps_source == "default_25":
@@ -237,9 +256,9 @@ def ingest_sequence(seq_id, images_dir, xml_path, out_images_dir, out_labels_dir
 
     # List and sort all JPG frames in the sequence folder
     seq_img_dir = os.path.join(images_dir, seq_id)
-    all_jpgs = sorted([f for f in os.listdir(seq_img_dir) if f.lower().endswith(".jpg")])
+    frames_list = get_jpg_frames(seq_id, images_dir)
+    all_jpgs = [os.path.basename(path) for _, path in frames_list]
     total_frames = len(all_jpgs)
-    print(f" Total JPG frames : {total_frames}")
 
     # If sample is corrupted, 960x540 is used.
     # Verify actual image dimensions from first readable frame.
