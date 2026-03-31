@@ -38,7 +38,9 @@ models/*
 # -----------------------------------------------
 # CACHE, LOGS, RUNS — generated at runtime
 # -----------------------------------------------
-detections_cache/**/*.json
+# Keep detector cache JSONs for reproducibility
+!detections_cache/
+!detections_cache/**/*.json
 !detections_cache/README.json
 !detections_cache/.gitkeep
 

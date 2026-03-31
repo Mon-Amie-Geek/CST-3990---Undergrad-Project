@@ -70,3 +70,43 @@ split_source: official_train_set_only
 warmup_policy: "max(10, int(0.4 * fps))"
 warmup_minimum: 10
 warmup_note: "value varies per clip FPS — see logs/warmup_frames_log.json"
+
+# ── Day 6 additions ──────────────────────────────────────────────────────────
+
+detector_configs:
+  yolov8n:
+    weights:       "models/yolov8n_ua_detrac_v1_best.pt"
+    fine_tuned:    true
+    train_imgsz:   960
+    infer_imgsz:   640
+    note:          "Trained at 960x540, evaluated at 640x640 — Fix F05"
+  ssd300:
+    weights:       "COCO pretrained — SSD300_VGG16_Weights.COCO_V1"
+    fine_tuned:    false
+    train_imgsz:   "N/A"
+    infer_imgsz:   300
+    schema_space:  640
+    note:          "No fine-tuning — Fix F06. Native 300x300, bboxes scaled to 640x640."
+
+# Detection cache (populated Day 6 — read-only from Day 7 onwards)
+detection_cache:
+  yolov8n:
+    train: "detections_cache/train/yolov8n/"
+    val:   "detections_cache/val/yolov8n/"
+    test:  "detections_cache/test/yolov8n/"
+  ssd300:
+    train: "detections_cache/train/ssd300/"
+    val:   "detections_cache/val/ssd300/"
+    test:  "detections_cache/test/ssd300/"
+  frozen_after: "Day 6 — never re-run after this point"
+  warmup_policy: "stored in each cache file header — enforced downstream"
+
+# Evaluation
+evaluation_split:    test
+evaluation_iou:      [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
+results_log:         "logs/block_a_results.json"
+results_table_md:    "logs/block_a_results_table.md"
+
+# Selected detector
+selected_detector:   "YOLOv8n"
+selection_reason:    "Rule applied: mAP50 difference 0.3514 > threshold 0.05. YOLOv8n=0.6674, SSD300=0.316. Accuracy criterion dominates."

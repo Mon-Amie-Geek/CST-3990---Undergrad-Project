@@ -1,8 +1,9 @@
 # config_blockB.yaml
 # Block B - Tracker Comparison Configuration
 
-detector: TBD_from_block_A
-detections_source: detections_cache/
+detector:          "yolov8n"
+detections_source: "detections_cache/test/"
+reid_model:        osnet_x1_0_veri_776
 trackers:
   - sort
   - deepsort
