@@ -1,0 +1,146 @@
+{
+  "yolov8n": {
+    "train/MVI_20011": {
+      "frames_total": 664,
+      "warmup_boundary": 10,
+      "inference_time_sec": 43.0,
+      "fps_achieved": 15.4,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20011.json"
+    },
+    "train/MVI_20012": {
+      "frames_total": 936,
+      "warmup_boundary": 10,
+      "inference_time_sec": 59.22,
+      "fps_achieved": 15.8,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20012.json"
+    },
+    "train/MVI_20032": {
+      "frames_total": 437,
+      "warmup_boundary": 10,
+      "inference_time_sec": 22.17,
+      "fps_achieved": 19.7,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20032.json"
+    },
+    "train/MVI_20034": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 43.48,
+      "fps_achieved": 18.4,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20034.json"
+    },
+    "train/MVI_20035": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 44.3,
+      "fps_achieved": 18.1,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20035.json"
+    },
+    "train/MVI_20051": {
+      "frames_total": 906,
+      "warmup_boundary": 10,
+      "inference_time_sec": 51.27,
+      "fps_achieved": 17.7,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20051.json"
+    },
+    "train/MVI_20052": {
+      "frames_total": 694,
+      "warmup_boundary": 10,
+      "inference_time_sec": 38.08,
+      "fps_achieved": 18.2,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/yolov8n/MVI_20052.json"
+    },
+    "val/MVI_20061": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 51.45,
+      "fps_achieved": 15.5,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/val/yolov8n/MVI_20061.json"
+    },
+    "test/MVI_20062": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 43.18,
+      "fps_achieved": 18.5,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/test/yolov8n/MVI_20062.json"
+    },
+    "test/MVI_20063": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 42.57,
+      "fps_achieved": 18.8,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/test/yolov8n/MVI_20063.json"
+    }
+  },
+  "ssd300": {
+    "train/MVI_20011": {
+      "frames_total": 664,
+      "warmup_boundary": 10,
+      "inference_time_sec": 39.92,
+      "fps_achieved": 16.6,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20011.json"
+    },
+    "train/MVI_20012": {
+      "frames_total": 936,
+      "warmup_boundary": 10,
+      "inference_time_sec": 55.26,
+      "fps_achieved": 16.9,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20012.json"
+    },
+    "train/MVI_20032": {
+      "frames_total": 437,
+      "warmup_boundary": 10,
+      "inference_time_sec": 25.06,
+      "fps_achieved": 17.4,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20032.json"
+    },
+    "train/MVI_20034": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 46.81,
+      "fps_achieved": 17.1,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20034.json"
+    },
+    "train/MVI_20035": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 47.62,
+      "fps_achieved": 16.8,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20035.json"
+    },
+    "train/MVI_20051": {
+      "frames_total": 906,
+      "warmup_boundary": 10,
+      "inference_time_sec": 54.98,
+      "fps_achieved": 16.5,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20051.json"
+    },
+    "train/MVI_20052": {
+      "frames_total": 694,
+      "warmup_boundary": 10,
+      "inference_time_sec": 40.68,
+      "fps_achieved": 17.1,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/train/ssd300/MVI_20052.json"
+    },
+    "val/MVI_20061": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 49.31,
+      "fps_achieved": 16.2,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/val/ssd300/MVI_20061.json"
+    },
+    "test/MVI_20062": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 48.14,
+      "fps_achieved": 16.6,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/test/ssd300/MVI_20062.json"
+    },
+    "test/MVI_20063": {
+      "frames_total": 800,
+      "warmup_boundary": 10,
+      "inference_time_sec": 46.98,
+      "fps_achieved": 17.0,
+      "cache_path": "/content/CST-3990---Undergrad-Project/detections_cache/test/ssd300/MVI_20063.json"
+    }
+  }
+}
