@@ -40,23 +40,9 @@ models/*
 # -----------------------------------------------
 # Detector cache files kept for reproducibility
 !detections_cache/
-!detections_cache/train/
-!detections_cache/val/
-!detections_cache/test/
-!detections_cache/train/yolov8n/
-!detections_cache/val/yolov8n/
-!detections_cache/test/yolov8n/
-!detections_cache/train/ssd300/
-!detections_cache/val/ssd300/
-!detections_cache/test/ssd300/
 !detections_cache/**/*.json
 !detections_cache/README.json
 !detections_cache/.gitkeep
-
-!logs/.gitkeep
-!logs/day3_frame_sync_results.json
-!logs/warmup_frames_log.json
-!logs/map_yolov8n_per_sequence.json
 
 runs/*
 !runs/.gitkeep
