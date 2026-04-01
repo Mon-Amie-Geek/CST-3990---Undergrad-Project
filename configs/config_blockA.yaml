@@ -21,7 +21,7 @@ names: [vehicle]
 # 0 : Visible/minimal occlusion, 1 : Mild occlusion
 occlusion_filter: [0, 1]
 split_source: official_train_set_only
-splits: {train:0.70, val:0.15, test:0.15}
+splits: {train:0.70, val:0.2, test:0.10}
 
 conf_thresh: 0.25
 #Non-maximum Suppression threshold: How overlapping boxes are filtered
