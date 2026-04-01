@@ -2,7 +2,13 @@
 # Block B - Tracker Comparison Configuration
 
 detector:          "yolov8n"
-detections_source: "detections_cache/test/"
+detector_frozen_day: 6
+split_manifest: data/ua_detrac/split_manifest.json
+split: test
+detections_source: "detections_cache"
+conf_thresh: 0.25
+nms_thresh: 0.45
+cache_frame_index_base: 0
 reid_model:        osnet_x1_0_veri_776
 trackers:
   - sort
@@ -10,7 +16,7 @@ trackers:
   - bytetrack
   # Intended to specify appearance/ re-identification model used by DeepSORT
   # Two detections from different frames belonging to the same vehicle --> When vehicles overlap, objects leave and  re-enter view & possibility for identity switch
-reid_model: osnet_x1_0_veri_776
+
 # Discards tracks shorter than 15 frames
 min_track_length: 15
 # Allow interpolation across max gap of 3 frames

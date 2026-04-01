@@ -1,112 +1,29 @@
-# config_blockA.yaml
-# Block A - Detector Comparison Configuration
+detector: "yolov8n"
+detector_frozen_day: 6
 
-dataset: ua_detrac
-sequences_file: data/ua_detrac/clips_master.txt
-dataset_yaml: configs/dataset.yaml
-
-# Resolution
-train_resolution: original_960x540
-# 640 - Common size, specially for YOLO
-infer_resolution: [640, 640]
-# Treat all vehicles as one
-class_map: 
-  Car: 0
-  Van: 0
-  Bus: 0
-  Others: 0
-nc: 1
-names: [vehicle]
-
-# 0 : Visible/minimal occlusion, 1 : Mild occlusion
-occlusion_filter: [0, 1]
-split_source: official_train_set_only
-splits: {train:0.70, val:0.2, test:0.10}
+split_manifest: data/ua_detrac/split_manifest.json
+split: test
+detections_source: "detections_cache/"
 
 conf_thresh: 0.25
-#Non-maximum Suppression threshold: How overlapping boxes are filtered
 nms_thresh: 0.45
 
-# Warmup policy
-warmup_policy: "max(10, int(0.4 * fps))"
+cache_frame_index_base: 0   # provisional until Check 4 confirms
 
-training:
-  model: yolov8n.pt
-  epochs: 50
-  imgsz: 960
-  batch: 8
-  patience: 10
-  optimiser: AdamW
-  seed: 42
-  augmentation: yolo_default_no_manual_resize
-  project: runs/train
-  name: yolov8n_ua_detrac_v1
-  output_dir: runs/train/yolov8n_ua_detrac_v1/
-  expected_runtime:
-    T4_gpu: "2.0-2.5 hours"
-    P100_gpu: "1.5-2.0 hours"
-    A100_gpu: "0.8-1.2 hours"
+reid_model: osnet_x1_0_veri_776
 
-# Output paths:
+trackers:
+  - sort
+  - deepsort
+  - bytetrack
 
-weights_best: runs/train/yolov8n_ua_detrac_v1/weights/best.pt
-detections_cache: detections_cache/
-detector_schema: configs/detector_output_schema.json
+min_track_length: 15
+max_interp_gap: 3
 
-# Reproducibility
+bytetrack:
+  track_high_thresh: 0.50
+  track_low_thresh: 0.10
+  match_thresh: 0.80
+  max_time_lost: 30
+
 seed: 42
-
-notes:
-  - "Detection cache populated Day 6 — EMPTY on Day 5"
-  - "Training resolution 960x540, inference 640x640"
-  - "No fine-tuning of SSD300 — evaluated directly"
-splits:
-  train: 0.70
-  val: 0.15
-  test: 0.15
-split_source: official_train_set_only
-
-# Ignore/Stabilise first 10 frames
-warmup_policy: "max(10, int(0.4 * fps))"
-warmup_minimum: 10
-warmup_note: "value varies per clip FPS — see logs/warmup_frames_log.json"
-
-# ── Day 6 additions ──────────────────────────────────────────────────────────
-
-detector_configs:
-  yolov8n:
-    weights:       "models/yolov8n_ua_detrac_v1_best.pt"
-    fine_tuned:    true
-    train_imgsz:   960
-    infer_imgsz:   640
-    note:          "Trained at 960x540, evaluated at 640x640 — Fix F05"
-  ssd300:
-    weights:       "COCO pretrained — SSD300_VGG16_Weights.COCO_V1"
-    fine_tuned:    false
-    train_imgsz:   "N/A"
-    infer_imgsz:   300
-    schema_space:  640
-    note:          "No fine-tuning — Fix F06. Native 300x300, bboxes scaled to 640x640."
-
-# Detection cache (populated Day 6 — read-only from Day 7 onwards)
-detection_cache:
-  yolov8n:
-    train: "detections_cache/train/yolov8n/"
-    val:   "detections_cache/val/yolov8n/"
-    test:  "detections_cache/test/yolov8n/"
-  ssd300:
-    train: "detections_cache/train/ssd300/"
-    val:   "detections_cache/val/ssd300/"
-    test:  "detections_cache/test/ssd300/"
-  frozen_after: "Day 6 — never re-run after this point"
-  warmup_policy: "stored in each cache file header — enforced downstream"
-
-# Evaluation
-evaluation_split:    test
-evaluation_iou:      [0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
-results_log:         "logs/block_a_results.json"
-results_table_md:    "logs/block_a_results_table.md"
-
-# Selected detector
-selected_detector:   "YOLOv8n"
-selection_reason:    "Rule applied: mAP50 difference 0.3514 > threshold 0.05. YOLOv8n=0.6674, SSD300=0.316. Accuracy criterion dominates."
