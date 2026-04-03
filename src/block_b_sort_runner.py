@@ -443,7 +443,7 @@ def run_all_sequences(seq_ids, gt_root):
 
 # Entry point 
 if __name__ == '__main__':
-    GT_ROOT = 'dataset/ua_detrac/annotations'
+    GT_ROOT = 'data/ua_detrac/annotations'
 
     verify_split_integrity(cfg_b['split_manifest'])
     seq_ids = load_split_sequences(SPLIT, cfg_b['split_manifest'])

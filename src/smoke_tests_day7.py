@@ -135,33 +135,31 @@ def test_split_manifest_integrity(cfg_b):
     from split_utils import verify_split_integrity
     # No overlapping sequences, correct counts, valid IDs
     verify_split_integrity(cfg_b['split_manifest'])
-    print("T6 PASS: split manifest integrity verified, lambda: test_split_manifest_integrity(cfg_b)")
+    print("T6 PASS: split manifest integrity verified")
 
 
 # T7: Detector selection assertion
 # detector in config_BlockB.yaml matches Block A selected detector
 def test_detector_selection_assertion(cfg_b):
     """
-    Asserts that the detector in config_blockB matches selected==True
-    in block_a_results.csv. Stricter than just checking cache directory.
+    Asserts that the detector in config_blockB matches selected_detector
+    in block_a_results.json. Stricter than just checking cache directory.
     """
-    import pandas as pd
-    results_path = 'logs/block_a/block_a_results.csv'
+    results_path = 'logs/block_a_results.json'
     if not os.path.exists(results_path):
-        print("T7 SKIP: block_a_results.csv not found (run Block A first)")
+        print("T7 SKIP: block_a_results.json not found (run Block A first)")
         return
-    df_a = pd.read_csv(results_path)
-    # Finds selected detector
-    selected_rows = df_a[df_a['selected'] == True]
-    assert len(selected_rows) == 1, \
-        f"T7 FAIL: expected 1 selected detector in block_a_results.csv, got {len(selected_rows)}"
-    selected_detector = selected_rows.iloc[0]['detector']
+    with open(results_path) as f:
+        block_a = json.load(f)
+    assert 'selected_detector' in block_a, \
+        "T7 FAIL: 'selected_detector' key missing from block_a_results.json"
+    selected_detector = block_a['selected_detector']
     # Ensures config consistency
     assert cfg_b['detector'] == selected_detector, \
         (f"T7 FAIL: config_blockB detector='{cfg_b['detector']}' does not match "
-         f"selected detector='{selected_detector}' from block_a_results.csv.\n"
+         f"selected detector='{selected_detector}' from block_a_results.json.\n"
          f"Update config_blockB.yaml before proceeding.")
-    print(f"T7 PASS: detector '{cfg_b['detector']}' matches block_a_results.csv selected==True")
+    print(f"T7 PASS: detector '{cfg_b['detector']}' matches block_a_results.json selected_detector")
 
 
 # T8: velocity_norm null on first, float on second 
