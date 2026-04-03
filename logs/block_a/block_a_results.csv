@@ -1,0 +1,3 @@
+detector,mAP,FPS,precision,recall,selected
+yolov8n,0.6674,47.2,0.7679,0.7703,True
+ssd300,0.316,25.6,0.2801,0.5582,False
