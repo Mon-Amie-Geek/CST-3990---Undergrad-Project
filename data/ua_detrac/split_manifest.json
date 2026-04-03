@@ -1,0 +1,36 @@
+{
+  "description": "Frozen UA-DETRAC split for Blocks A, B, C. Fix F08.",
+  "seed": 42,
+  "total_sequences": 10,
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "split_counts": {
+    "train": 7,
+    "val": 1,
+    "test": 2
+  },
+  "frozen_day": 7,
+  "source_file": "configs/clips_master.txt",
+  "official_train_set_verified": true,
+  "splits": {
+    "train": [
+      "MVI_20061",
+      "MVI_20034",
+      "MVI_20032",
+      "MVI_20062",
+      "MVI_20051",
+      "MVI_20052",
+      "MVI_20063"
+    ],
+    "val": [
+      "MVI_20035"
+    ],
+    "test": [
+      "MVI_20011",
+      "MVI_20012"
+    ]
+  }
+}
