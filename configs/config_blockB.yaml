@@ -1,31 +1,74 @@
-# config_blockB.yaml
-# Block B - Tracker Comparison Configuration
 
-detector:          "yolov8n"
-detector_frozen_day: 6
-split_manifest: data/ua_detrac/split_manifest.json
-split: test
-detections_source: "detections_cache"
-conf_thresh: 0.25
-nms_thresh: 0.45
-cache_frame_index_base: 0
-reid_model:        osnet_x1_0_veri_776
-trackers:
-  - sort
-  - deepsort
-  - bytetrack
-  # Intended to specify appearance/ re-identification model used by DeepSORT
-  # Two detections from different frames belonging to the same vehicle --> When vehicles overlap, objects leave and  re-enter view & possibility for identity switch
+# Block B — Tracker Comparison Configuration
+# Frozen: Day 7 
+# DeepSORT uses osnet_x1_0_veri_776
+# split sequences from frozen manifest, not clips_master.txt
+# All trackers read from detections_cache/ — detector never re-run
+# ByteTrack thresholds explicit
+# F24 : seed: 42
+# max_age=5 prevents ID splitting in UA-DETRAC heavy occlusion
+# conf_thresh inherited from config_blockA.yaml
 
-# Discards tracks shorter than 15 frames
-min_track_length: 15
-# Allow interpolation across max gap of 3 frames
-max_interp_gap: 3
+detector            : yolov8n
+detector_frozen_day : 6
+
+# No longer uses clips_master.txt — frozen manifest only
+split_manifest      : data/ua_detrac/split_manifest.json
+split               : test        # test split used for Block B evaluation
+
+detections_source   : detections_cache/
+
+# Inherited from config_blockA.yaml
+# conf_thresh: active filter in SORTTracker.update()
+# nms_thresh : provenance only — NOT active in Day 7.
+# Cached detections are already post-NMS from Block A.
+# Stored here solely for reproducibility chain documentation.
+conf_thresh         : 0.25 
+nms_thresh          : 0.45  
+
+# SORT — Correction A
+sort:
+  max_age       : 5     # 5 not 1 — UA-DETRAC heavy occlusion up to 5 frames
+  min_hits      : 3
+  iou_threshold : 0.3
+  
+
+# DeepSORT (Day 8)
+deepsort: 
+  reid_model    : osnet_x1_0_veri_776
+  max_age       : 30
+  min_hits      : 3
+  iou_threshold : 0.3
+
+# ByteTrack (Day 8) 
 bytetrack:
-  track_high_thresh: 0.50
-  track_low_thresh: 0.10
-  # Matching between detections and tracks
-  match_thresh: 0.80
-  # Track can remain unmatched for upto 30 frames before being dropped
-  max_time_lost: 30
+  track_high_thresh : 0.50
+  track_low_thresh  : 0.10
+  match_thresh      : 0.80
+  max_time_lost     : 30
+
+# Fragment filter —
+# NOT applied Day 7. Day 9 reads these values for post-processing.
+min_track_length : 15
+max_interp_gap   : 3
+
+# Evaluation 
+eval:
+  iou_threshold : 0.5
+  metrics:
+    - mota
+    - idf1
+    - num_switches
+    - num_fragmentations
+    - num_objects
+    - num_predictions
+    - precision
+    - recall
+
+# Frame index contract — set from Check 4 
+# 0 = cache is 0-based (GT offset: frame_num - 1)
+# 1 = cache is 1-based (GT offset: 0)
+cache_frame_index_base : 0 
+
+# Seed
 seed: 42

@@ -1,0 +1,45 @@
+{
+  "_description": "Frozen trajectories.json schema — Day 7. Data contract for Block C (Day 10).",
+  "_frozen_day": 7,
+  "_fixes_applied": ["Mixed rolling window units", "Official UA-DETRAC train/split test ignored", "Detection caching not specified", "Fragment filter missing for short tracks", "Frame index synchronisation", "Warmup frames not discarded", "FPS extraction method not specified in ingestor"],
+  "_corrections_applied": [
+    "Correction C: velocity_norm embedded for Block C F2 feature",
+    "Correction schema-accuracy: conf is never null in Day 7 SORT output"
+  ],
+
+  "_day7_behaviour_notes": {
+    "raw_only": "Day 7 saves RAW trajectories. Fragment filter (min_track_length=15) is not applied yet; Day 9 writes a filtered artifact separately.",
+    "conf_null_clarification": "In Day 7 SORT output, conf is NEVER null. The SORT tracker only emits a track when time_since_update < 1, so every emitted track frame corresponds to a matched detection with a real confidence score. Prediction-only states are not written in Day 7 SORT.",
+    "nms_thresh_provenance": "nms_thresh is stored in config_blockB.yaml for provenance only. It is NOT active in Day 7 because cached detections from Block A are already post-NMS.",
+    "split_source": "Sequence lists come from frozen split_manifest.json via split_utils.py, not clips_master.txt. split_blockABC_*.txt are frozen companion artifacts."
+  },
+
+  "seq_id": "string — e.g. MVI_20011",
+  "tracker": "string — sort | deepsort | bytetrack",
+  "detector": "string — frozen from Day 6 Block A selection; reflected as selected==True in logs/block_a/block_a_results.csv",
+  "warmup_boundary": "int — 0-based frame_idx; frames <= this excluded during evaluation and later feature extraction (Fix F16)",
+  "fps": "float — sequence FPS from the frozen metadata source established in earlier stages (Fix F20)",
+  "frame_width": "int — pixels",
+  "frame_height": "int — pixels",
+  "frame_diagonal": "float — sqrt(W^2 + H^2), denominator for dist_norm in Block C",
+  "min_track_length": "int — stored for Day 9 reference; NOT applied in this file",
+
+  "tracks": {
+    "<track_id_string>": [
+      {
+        "frame_idx": "int — 0-based, matches cache contract (Fix F12). GT is 1-based; offset is applied only in evaluation, never in saved trajectories.",
+        "bbox": ["x1 float", "y1 float", "x2 float", "y2 float"],
+        "cx": "float — (x1+x2)/2",
+        "cy": "float — (y1+y2)/2",
+        "velocity_norm": "float or null — null only for the first appearance of a track. Thereafter: dist(centroid_t, centroid_{t-1}) * fps / frame_diagonal. Do not replace null with 0.",
+        "conf": "float — detection confidence from cache. In Day 7 SORT output this is always a float."
+      }
+    ]
+  },
+
+  "_block_c_data_contract": {
+    "F1_density": "frame_idx — for windowed vehicle count and ROI occupancy",
+    "F2_speed": "velocity_norm — already normalised by fps and frame_diagonal",
+    "F3_distance": "cx, cy, frame_diagonal — inter-vehicle distance computed in Block C"
+  }
+}
