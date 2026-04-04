@@ -34,7 +34,7 @@ def load_split_sequences(split_name, manifest_path=DEFAULT_MANIFEST):
     if not os.path.exists(manifest_path):
         raise FileNotFoundError(
             f"Split manifest not found: {manifest_path}\n"
-            f"Run freeze_split_manifest.py before any Block B/C/D code."
+            f"check before any Block B/C/D code."
         )
 
     with open(manifest_path) as f:
