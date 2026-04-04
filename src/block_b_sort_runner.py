@@ -102,7 +102,7 @@ def get_commit_hash():
 # Loads metadata: FPS, frame width, frame height
 def load_metadata(seq_id):
     # Builds per sequence metadata file path
-    path = os.path.join('data', 'ua_detrac', 'metadata', f'{seq_id}.json')
+    path = os.path.join('log', 'metadata', f'{seq_id}.json')
     if not os.path.exists(path):
         # Prevent silent failures in velocity calculations
         raise FileNotFoundError(
