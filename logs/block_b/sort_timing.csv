@@ -1,0 +1,3 @@
+seq_id,total_sec,mean_ms_per_frame,tracker_fps,n_frames_processed
+MVI_20062,0.6203,0.7753,1289.75,800
+MVI_20063,0.8251,1.0314,969.56,800

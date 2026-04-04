@@ -17,20 +17,20 @@
   "official_train_set_verified": true,
   "splits": {
     "train": [
-      "MVI_20061",
-      "MVI_20034",
+      "MVI_20011",
+      "MVI_20012",
       "MVI_20032",
-      "MVI_20062",
+      "MVI_20034",
+      "MVI_20035",
       "MVI_20051",
-      "MVI_20052",
-      "MVI_20063"
+      "MVI_20052"
     ],
     "val": [
-      "MVI_20035"
+      "MVI_20061"
     ],
     "test": [
-      "MVI_20011",
-      "MVI_20012"
+      "MVI_20062",
+      "MVI_20063"
     ]
   }
 }

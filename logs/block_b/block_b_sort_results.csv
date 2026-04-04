@@ -1,0 +1,3 @@
+seq_id,tracker,mota,idf1,num_switches,num_fragmentations,num_objects,num_predictions,precision,recall,n_raw_tracks,detector_name,conf_thresh,nms_thresh,split,eval_iou,sort_max_age,sort_min_hits,tracker_fps,mean_ms_per_frame,fragment_filter,commit_hash
+MVI_20062,sort,-0.8766368022053757,0.06085455330168321,21,19,4353,4915,0.11393692777212615,0.1286469101768895,49,yolov8n,0.25,0.45,test,0.5,5,3,1289.75,0.7753,NOT_APPLIED_DAY7,f00e848
+MVI_20063,sort,-0.6784085548042145,0.021499596882558453,10,12,6359,4804,0.05203996669442131,0.03931435760339676,63,yolov8n,0.25,0.45,test,0.5,5,3,969.56,1.0314,NOT_APPLIED_DAY7,f00e848
