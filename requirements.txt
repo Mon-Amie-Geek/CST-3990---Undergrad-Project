@@ -35,3 +35,9 @@ joblib==1.4.2
 matplotlib==3.9.0
 #Advanced statistical visualisation library
 seaborn==0.13.2
+
+# --- Day 8 additions ---
+# Deep-person-reid (torchreid) — VeRi-776 ReID backbone for DeepSORT
+# Use git+ URL for reproducibility; the PyPI 'torchreid' package is outdated
+# Colab install: pip install git+https://github.com/KaiyangZhou/deep-person-reid.git filterpy --quiet
+torchreid @ git+https://github.com/KaiyangZhou/deep-person-reid.git

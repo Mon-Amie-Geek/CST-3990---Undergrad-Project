@@ -1,58 +1,63 @@
 
-# Block B — Tracker Comparison Configuration
-# Frozen: Day 7 
-# DeepSORT uses osnet_x1_0_veri_776
-# split sequences from frozen manifest, not clips_master.txt
-# All trackers read from detections_cache/ — detector never re-run
-# ByteTrack thresholds explicit
-# F24 : seed: 42
-# max_age=5 prevents ID splitting in UA-DETRAC heavy occlusion
-# conf_thresh inherited from config_blockA.yaml
+# Block B — Multi-Object Tracking Configuration
+# Day 7 (SORT) + Day 8 (DeepSORT, ByteTrack) — FROZEN after Day 8
 
-detector            : yolov8n
+detector            : yolov8n                        # selected in Block A — frozen
 detector_frozen_day : 6
 
-# No longer uses clips_master.txt — frozen manifest only
-split_manifest      : data/ua_detrac/split_manifest.json
-split               : test        # test split used for Block B evaluation
+detections_source   : detections_cache/              # never regenerated
+metadata_source     : logs/metadata.json             # CONFIRMED source — split_seqs + per-seq metadata
 
-detections_source   : detections_cache/
+# split_manifest kept for compat with Day 7 block_b_sort_runner.py
+# Day 8+ reads split from metadata_source (logs/metadata.json["split_seqs"])
+split_manifest      : data/ua_detrac/split_manifest.json
+split               : test                           # metadata["split_seqs"]["test"]
+
+seed: 42
+
+trackers: [sort, deepsort, bytetrack]                # all three evaluated
 
 # Inherited from config_blockA.yaml
-# conf_thresh: active filter in SORTTracker.update()
-# nms_thresh : provenance only — NOT active in Day 7.
-# Cached detections are already post-NMS from Block A.
-# Stored here solely for reproducibility chain documentation.
-conf_thresh         : 0.25 
-nms_thresh          : 0.45  
+# conf_thresh: active filter applied before tracker association
+# nms_thresh : provenance only — NOT active; cached detections are already post-NMS
+conf_thresh         : 0.25
+nms_thresh          : 0.45
 
-# SORT — Correction A
+# SORT (Day 7)
 sort:
-  max_age       : 5     # 5 not 1 — UA-DETRAC heavy occlusion up to 5 frames
+  max_age       : 5     # intentionally low — UA-DETRAC heavy occlusion up to 5 frames; avoids ID drift
   min_hits      : 3
-  iou_threshold : 0.3
-  
+  iou_threshold : 0.30
 
 # DeepSORT (Day 8)
-deepsort: 
-  reid_model    : osnet_x1_0_veri_776
-  max_age       : 30
-  min_hits      : 3
-  iou_threshold : 0.3
+deepsort:
+  reid_model        : osnet_x1_0_veri_776   # VeRi-776 — 
+  reid_input_size   : [256, 128]            # H x W — standard VeRi-776 input
+  appearance_thresh : 0.40                  # cosine distance gate; > 0.40 rejects the match
+  max_age           : 30
+  min_hits          : 3
+  iou_threshold     : 0.30
 
-# ByteTrack (Day 8) 
+# ByteTrack (Day 8)
 bytetrack:
-  track_high_thresh : 0.50
-  track_low_thresh  : 0.10
-  match_thresh      : 0.80
-  max_time_lost     : 30
+  track_high_thresh : 0.50   # HIGH-SCORE gate — detections >= 0.50 → first association pass
+  track_low_thresh  : 0.10   # LOW-SCORE gate  — detections 0.10–0.49 → second association pass
+  match_thresh      : 0.80   # IoU accept threshold for both passes (Fix F19)
+  max_time_lost     : 30     # frames before unmatched track is deleted
 
-# Fragment filter —
-# NOT applied Day 7. Day 9 reads these values for post-processing.
-min_track_length : 15
-max_interp_gap   : 3
 
-# Evaluation 
+# Values COMPUTED and LOGGED during Day 8 tracking runs.
+# Enforcement (discarding short tracks, applying interpolation) DEFERRED to Day 9.
+min_track_length : 15     # threshold for Day 9 discard pass
+max_interp_gap   : 3      # threshold for Day 9 interpolation pass
+
+# Output paths
+output_base        : logs/block_b/
+trajectory_schema  : configs/trajectory_schema.json 
+
+# Evaluatio
+eval_split         : test                # MVI_20062, MVI_20063 only
+fps_benchmark_seq  : MVI_20062
 eval:
   iou_threshold : 0.5
   metrics:
@@ -65,10 +70,6 @@ eval:
     - precision
     - recall
 
-# Frame index contract — set from Check 4 
-# 0 = cache is 0-based (GT offset: frame_num - 1)
-# 1 = cache is 1-based (GT offset: 0)
-cache_frame_index_base : 0 
-
-# Seed
-seed: 42
+# Frame index contract — verified in Day 7 smoke test
+# 0 = cache is 0-based (GT offset applied: gt_frame_num - 1)
+cache_frame_index_base : 0

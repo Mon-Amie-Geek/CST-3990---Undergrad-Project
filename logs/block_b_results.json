@@ -1,0 +1,58 @@
+{
+  "block": "B",
+  "evaluation_split": ["MVI_20062", "MVI_20063"],
+  "selected_detector": "yolov8n",
+  "trackers": [
+    {
+      "tracker": "sort",
+      "reid_model": "none",
+      "mota_mean": -0.7775226785047951,
+      "idf1_mean": 0.04117707509212083,
+      "idsw_total": 31,
+      "fragmentations_total": 31,
+      "fps_median": 1129.655,
+      "per_seq": {
+        "MVI_20062": {
+          "mota": -0.8766368022053757,
+          "idf1": 0.06085455330168321,
+          "idsw": 21,
+          "fragmentations": 19,
+          "fps": 1289.75
+        },
+        "MVI_20063": {
+          "mota": -0.6784085548042145,
+          "idf1": 0.021499596882558453,
+          "idsw": 10,
+          "fragmentations": 12,
+          "fps": 969.56
+        }
+      },
+      "selected": false
+    },
+    {
+      "tracker": "deepsort",
+      "reid_model": "osnet_x1_0_veri_776",
+      "mota_mean": null,
+      "idf1_mean": null,
+      "idsw_total": null,
+      "fragmentations_total": null,
+      "fps_median": null,
+      "per_seq": {},
+      "selected": false,
+      "note": "Populated by Day 8 Colab run — see notebooks/day8_block_b_trackers.ipynb"
+    },
+    {
+      "tracker": "bytetrack",
+      "reid_model": "none",
+      "mota_mean": null,
+      "idf1_mean": null,
+      "idsw_total": null,
+      "fragmentations_total": null,
+      "fps_median": null,
+      "per_seq": {},
+      "selected": false,
+      "note": "Populated by Day 8 Colab run — see notebooks/day8_block_b_trackers.ipynb"
+    }
+  ],
+  "note": "Tracker selection deferred to Day 9 after error propagation correlation (Fix F30 supplement). DeepSORT and ByteTrack rows populated by Colab runtime; null fields updated after run."
+}

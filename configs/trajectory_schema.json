@@ -1,0 +1,38 @@
+{
+  "description": "Block B trajectory output schema — merged Day 7 + Day 8 fields — frozen after Day 8",
+  "note": "Day 7 introduced cx, cy, velocity_norm fields. Day 8 adds interpolated, track_length, and gap metadata. Both sets required in all Day 8+ tracker outputs. Day 7 SORT files will lack Day 8 fields AND will lack 'reid_model' — Day 9 post-processing backfills 'reid_model':'none' into SORT files and normalises all trackers to this schema. Block C must use .get('reid_model', 'none') defensively.",
+  "header_fields": {
+    "seq_id": "string",
+    "detector": "string — always yolov8n",
+    "tracker": "string — sort | deepsort | bytetrack",
+    "reid_model": "string — 'osnet_x1_0_veri_776' for DeepSORT; 'none' (literal string) for SORT and ByteTrack",
+    "warmup_boundary": "int — frames at or below this index are excluded from evaluation",
+    "cache_frame_index_base": "int — always 0 (verified in Day 7 smoke test; must not drift to 1)",
+    "min_track_length": "int — 15 (enforcement deferred to Day 9)",
+    "max_interp_gap": "int — 3 (enforcement deferred to Day 9)",
+    "fragment_filter_applied": "bool — always false in Day 8 outputs; set true by Day 9 post-processing",
+    "interpolation_applied": "bool — always false in Day 8 outputs; set true by Day 9 post-processing",
+    "tracks": "dict keyed by track_id string, each value is a list of track_entry objects"
+  },
+  "track_entry_fields": {
+    "track_id": "int — persistent identity across frames",
+    "frame_idx": "int — 0-based (cache_frame_index_base = 0 always)",
+    "bbox": "[x1, y1, x2, y2] — 640x640 coordinate space",
+    "conf": "float — detector confidence score",
+    "cx": "float — bbox centre-x in 640x640 space (inherited from Day 7 schema)",
+    "cy": "float — bbox centre-y in 640x640 space (inherited from Day 7 schema)",
+    "velocity_norm": "float | null — pixel displacement per second normalised by frame diagonal; null for first frame of track (inherited from Day 7 schema)",
+    "interpolated": "bool — always false in Day 8 raw outputs; set true only after Day 9 interpolation pass",
+    "track_length": "int — total length of this track (computed Day 8, used by Day 9 fragment filter)"
+  },
+  "gap_metadata_per_track": {
+    "note": "Stored in the trajectory header under a 'gap_analysis' key, keyed by track_id",
+    "max_gap": "int — largest consecutive gap in frames for this track",
+    "gap_count": "int — number of gaps",
+    "gaps": "list of {after_frame_idx, gap_size, interpolatable} objects"
+  },
+  "backward_compatibility": {
+    "reid_model_missing": "Day 7 SORT files lack 'reid_model'. Use .get('reid_model', 'none') everywhere. Day 9 backfills 'none' into SORT headers.",
+    "day8_fields_missing": "Day 7 SORT entries lack 'interpolated' and 'track_length'. Use .get('interpolated', False) and .get('track_length', None)."
+  }
+}
