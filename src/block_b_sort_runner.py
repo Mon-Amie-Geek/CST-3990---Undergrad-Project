@@ -101,20 +101,37 @@ def get_commit_hash():
 
 # Loads metadata: FPS, frame width, frame height
 def load_metadata(seq_id):
-    # Builds per sequence metadata file path
-    path = os.path.join('logs', 'metadata', f'{seq_id}.json')
+    """Load metadata from consolidated logs/metadata.json."""
+    path = os.path.join('logs', 'metadata.json')
     if not os.path.exists(path):
-        # Prevent silent failures in velocity calculations
         raise FileNotFoundError(
-            f"metadata.json missing for {seq_id}. "
-            f"Run metadata_repair.py before Day 7.")
-    with open(path) as f:
-        meta = json.load(f)
-    for key in ['fps', 'frame_width', 'frame_height']:
-        if key not in meta:
-            raise KeyError(f"metadata.json for {seq_id} missing key: {key}")
-    return meta
+            f"metadata.json missing at {path}. "
+            f"Run Day 2 metadata generation before Day 7."
+        )
 
+    with open(path) as f:
+        meta_all = json.load(f)
+
+    if 'sequences' not in meta_all:
+        raise KeyError("logs/metadata.json missing top-level key: 'sequences'")
+
+    if seq_id not in meta_all['sequences']:
+        raise FileNotFoundError(
+            f"Metadata for {seq_id} not found in logs/metadata.json"
+        )
+
+    meta = meta_all['sequences'][seq_id]
+
+    # your repo uses image_width / image_height
+    for key in ['fps', 'image_width', 'image_height']:
+        if key not in meta:
+            raise KeyError(f"Metadata for {seq_id} missing key: {key}")
+
+    return {
+        'fps': meta['fps'],
+        'frame_width': meta['image_width'],
+        'frame_height': meta['image_height']
+    }
 # Defines function to compute speed-like feature
 # Inputs: previous centroid, current centroid, fps, frame diagonal
 # Outputs: Normalised velocity
