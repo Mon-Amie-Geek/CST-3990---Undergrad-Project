@@ -1,10 +1,9 @@
 """
 tracker_deepsort.py
 DeepSORT tracker with OSNet VeRi-776 ReID — Block B
-CST3990 | MANJOO Ameera Najla | M01014463
 
 ReID backbone: osnet_x1_0 pretrained on VeRi-776 (576 vehicle identities).
-NOT Market-1501 (Fix F01 — RED severity).
+NOT Market-1501 (RED severity).
 
 Fixed constraints (inherited from project-wide rules):
   - Seeds: torch 42, numpy 42, random 42 — set before model initialisation
@@ -110,34 +109,31 @@ def build_reid_model(drive_models_dir="/content/drive/MyDrive/CST3990/models"):
         pretrained=False
     )
 
+    zoo_key = (
+        'osnet_x1_0_veri_256x128_amsgrad_ep60_lr0.0015_b64_fb10_'
+        'softmax_labelsmooth_flip'
+    )
+
     if os.path.exists(weight_path):
         torchreid.utils.load_pretrained_weights(model, weight_path)
         logger.info(f"VeRi-776 weights loaded from Drive cache: {weight_path}")
         print(f"  [DeepSORT] VeRi-776 weights loaded from Drive cache ✓")
     else:
-        # First run: download via torchreid model zoo then persist to Drive
+        # First run: download via FeatureExtractor (handles zoo key download)
+        # load_pretrained_weights only accepts file paths — zoo download requires FeatureExtractor
         os.makedirs(drive_models_dir, exist_ok=True)
-        zoo_key = (
-            'osnet_x1_0_veri_256x128_amsgrad_ep60_lr0.0015_b64_fb10_'
-            'softmax_labelsmooth_flip'
-        )
         print(f"  [DeepSORT] Downloading VeRi-776 weights (zoo key: {zoo_key}) ...")
-        torchreid.utils.load_pretrained_weights(model, zoo_key)
-
-        # Cache to Drive
-        import glob, shutil
-        candidates = glob.glob(
-            os.path.expanduser("~/.cache/torchreid/**/*veri*.pth"),
-            recursive=True
+        device_str = "cuda" if torch.cuda.is_available() else "cpu"
+        fe = torchreid.utils.FeatureExtractor(
+            model_name='osnet_x1_0',
+            model_path=zoo_key,
+            device=device_str
         )
-        if candidates:
-            shutil.copy(candidates[0], weight_path)
-            print(f"  [DeepSORT] VeRi-776 weights cached to Drive: {weight_path} ✓")
-        else:
-            raise RuntimeError(
-                "VeRi-776 weight download failed — cache file not found. "
-                "Do NOT fall back to Market-1501 (Fix F01)."
-            )
+        model = fe.model
+
+        # Cache to Drive as a torchreid-compatible checkpoint
+        torch.save({'state_dict': model.state_dict()}, weight_path)
+        print(f"  [DeepSORT] VeRi-776 weights cached to Drive: {weight_path} ✓")
 
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
