@@ -11,7 +11,8 @@ tracker: sort                              # frozen from Block B (block_b_result
 # Block C must re-detect DAY7_LAYOUT and construct paths accordingly.
 trajectory_base: logs/block_b/
 trajectory_suffix: _final.json
-trajectory_stage: final                    # semantic alias — "final" = fragment-filtered + interpolated
+trajectory_stage: final
+meta_source: logs/metadata.json                   # semantic alias — "final" = fragment-filtered + interpolated
 
 # —— Warm-up stripping ————————————————————————————————————————————————————
 warmup_frames_formula: "max(10, int(0.4 * fps))"   # computed at runtime from metadata.json fps
