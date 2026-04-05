@@ -322,14 +322,14 @@ def _evaluate(seq_id, trajectories_dict, gt_xml_path,
         pred_dict = pred_by_frame.get(fidx, {})
         gt_ids    = list(gt_dict.keys())
         pred_ids  = list(pred_dict.keys())
-        dist_matrix = (
-            mm.distances.iou_matrix(
+        if gt_ids and pred_ids:
+            iou = _iou_matrix(
                 [gt_dict[i]   for i in gt_ids],
-                [pred_dict[i] for i in pred_ids],
-                max_iou=1 - iou_thresh_eval)
-            if gt_ids and pred_ids
-            else np.full((len(gt_ids), len(pred_ids)), np.nan)
-        )
+                [pred_dict[i] for i in pred_ids]
+            )
+            dist_matrix = np.where(iou >= iou_thresh_eval, 1.0 - iou, np.nan)
+        else:
+            dist_matrix = np.full((len(gt_ids), len(pred_ids)), np.nan)
         acc.update(gt_ids, pred_ids, dist_matrix)
 
     mh      = mm.metrics.create()

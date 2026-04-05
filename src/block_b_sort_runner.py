@@ -324,18 +324,23 @@ def evaluate_with_motmetrics(seq_id, raw_trajectories,
         gt_ids     = list(gt_dict.keys())
         pred_ids   = list(pred_dict.keys())
 
-        # Computes IoU cost matrix
-        dist_matrix = (
-            mm.distances.iou_matrix(
-                # Supplies GT boxes & predicted boxes
-                [gt_dict[i] for i in gt_ids],
-                [pred_dict[i] for i in pred_ids],
-                # Uses evaluation threshold
-                max_iou=1 - IOU_THRESH_EVAL)
-            if gt_ids and pred_ids
-            # If one side empty, create nan matrix instead of crashing
-            else np.full((len(gt_ids), len(pred_ids)), np.nan)
-        )
+        # Computes IoU cost matrix (avoids mm.distances.iou_matrix which uses
+        # np.asfarray removed in NumPy 2.0)
+        if gt_ids and pred_ids:
+            a = np.array([gt_dict[i]   for i in gt_ids],   dtype=float)
+            b = np.array([pred_dict[i] for i in pred_ids], dtype=float)
+            ix1 = np.maximum(a[:, 0:1], b[:, 0])
+            iy1 = np.maximum(a[:, 1:2], b[:, 1])
+            ix2 = np.minimum(a[:, 2:3], b[:, 2])
+            iy2 = np.minimum(a[:, 3:4], b[:, 3])
+            inter = np.maximum(0.0, ix2 - ix1) * np.maximum(0.0, iy2 - iy1)
+            area_a = (a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1])
+            area_b = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
+            union  = area_a[:, None] + area_b[None, :] - inter
+            iou    = np.where(union > 0, inter / union, 0.0)
+            dist_matrix = np.where(iou >= IOU_THRESH_EVAL, 1.0 - iou, np.nan)
+        else:
+            dist_matrix = np.full((len(gt_ids), len(pred_ids)), np.nan)
         # Feeds this frame into motmetrics
         acc.update(gt_ids, pred_ids, dist_matrix)
 
