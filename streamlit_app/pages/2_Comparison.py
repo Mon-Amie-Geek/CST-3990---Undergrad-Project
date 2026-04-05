@@ -1,10 +1,14 @@
 """
 2_Comparison.py
 
-Comparison page showing placeholder experimental results.
-Results will be populated with actual data from Days 5-18.
+Comparison page showing experimental results.
+Block C section (Day 10+) loads actual feature CSVs from logs/block_c/ when available.
+Results for Blocks A, B, D remain placeholder until those days complete.
 Student: MANJOO Ameera Najla | M01014463
 """
+
+import os
+import glob
 
 import streamlit as st
 import pandas as pd
@@ -78,9 +82,116 @@ st.caption("""
 st.markdown("---")
 
 # ============================================================================
-# BLOCK C — FEATURE COMPARISON
+# BLOCK C — FEATURE SET COMPARISON (Day 10: loads actual CSVs when available)
 # ============================================================================
 st.header("Block C — Feature Set Comparison")
+
+# ── Try to load actual feature CSVs produced by Day 10 ──────────────────────
+BLOCK_C_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "logs", "block_c"
+)
+BLOCK_C_DIR = os.path.normpath(BLOCK_C_DIR)
+
+feature_csvs = sorted(glob.glob(os.path.join(BLOCK_C_DIR, "*_features.csv")))
+
+if feature_csvs:
+    st.success(
+        f"**Day 10 feature CSVs found** — {len(feature_csvs)} sequence(s) in `logs/block_c/`"
+    )
+
+    # Load and concatenate all available CSVs
+    dfs = []
+    for p in feature_csvs:
+        try:
+            dfs.append(pd.read_csv(p))
+        except Exception as e:
+            st.warning(f"Could not load {os.path.basename(p)}: {e}")
+
+    if dfs:
+        df_all = pd.concat(dfs, ignore_index=True)
+
+        # ── Summary stats ────────────────────────────────────────────────────
+        st.subheader("Feature Dataset Summary (F1 + F2 — Day 10)")
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total rows",       f"{len(df_all):,}")
+        col2.metric("Sequences",        df_all["seq_id"].nunique() if "seq_id" in df_all else "?")
+        col3.metric("Tracks",           df_all["track_id"].nunique() if "track_id" in df_all else "?")
+        col4.metric("Interpolated rows",
+                    f"{int(df_all['is_interpolated'].sum()):,}" if "is_interpolated" in df_all else "?")
+
+        # Split breakdown
+        if "split" in df_all.columns:
+            st.write("**Row counts per split:**")
+            split_counts = df_all["split"].value_counts().reset_index()
+            split_counts.columns = ["split", "rows"]
+            st.dataframe(split_counts, use_container_width=True)
+
+        # ── F1 velocity / vehicle count chart ───────────────────────────────
+        if "vehicle_count" in df_all.columns and "seq_id" in df_all.columns:
+            st.subheader("F1: Vehicle Count Distribution per Sequence")
+            vc_stats = (
+                df_all.groupby("seq_id")["vehicle_count"]
+                .agg(["mean", "max"])
+                .reset_index()
+                .rename(columns={"mean": "Mean Count", "max": "Max Count"})
+            )
+            fig_vc = go.Figure()
+            fig_vc.add_trace(go.Bar(
+                x=vc_stats["seq_id"], y=vc_stats["Mean Count"],
+                name="Mean", marker_color="#1f77b4"
+            ))
+            fig_vc.add_trace(go.Bar(
+                x=vc_stats["seq_id"], y=vc_stats["Max Count"],
+                name="Max", marker_color="#ff7f0e"
+            ))
+            fig_vc.update_layout(
+                barmode="group", title="Vehicle Count (mean / max) per Sequence",
+                xaxis_title="Sequence", yaxis_title="Vehicle Count", height=380
+            )
+            st.plotly_chart(fig_vc, use_container_width=True)
+
+        # ── F2 speed distribution ────────────────────────────────────────────
+        if "vel_px_sec_smooth" in df_all.columns:
+            st.subheader("F2: Smoothed Speed Distribution (vel_px_sec_smooth)")
+            speed_data = df_all["vel_px_sec_smooth"].dropna()
+            fig_sp = go.Figure()
+            fig_sp.add_trace(go.Histogram(
+                x=speed_data, nbinsx=60,
+                marker_color="#2ca02c", opacity=0.75,
+                name="vel_px_sec_smooth"
+            ))
+            fig_sp.update_layout(
+                title="Distribution of vel_px_sec_smooth across all sequences",
+                xaxis_title="Speed (px/sec, smoothed)",
+                yaxis_title="Count",
+                height=350
+            )
+            st.plotly_chart(fig_sp, use_container_width=True)
+            st.caption(
+                "speed_window = int(0.2 × fps) frames (Fix F07). "
+                "At 25 FPS = 5-frame rolling mean. Image-space proxy — not calibrated to km/h."
+            )
+
+        # ── Per-sequence feature stats table ────────────────────────────────
+        st.subheader("Per-Sequence Feature Statistics")
+        stat_cols = [c for c in ["vehicle_count", "roi_occupancy", "vel_px_sec", "vel_px_sec_smooth"]
+                     if c in df_all.columns]
+        if stat_cols and "seq_id" in df_all.columns:
+            stats_df = df_all.groupby("seq_id")[stat_cols].mean().round(4).reset_index()
+            st.dataframe(stats_df, use_container_width=True)
+
+    st.markdown("---")
+
+else:
+    st.info(
+        "**Block C feature CSVs not yet generated locally.** "
+        "Run Day 10 notebook in Colab to generate `logs/block_c/*_features.csv`, "
+        "then pull to this repo for live display here."
+    )
+
+# ── AUROC comparison (placeholder — populated Day 12) ───────────────────────
+st.subheader("Feature Set AUROC Comparison (Day 12 — placeholder)")
 
 features_data = {
     "Feature Set": [
@@ -97,13 +208,13 @@ features_data = {
 }
 
 df_features = pd.DataFrame(features_data)
-st.write("**placeholder — to be updated with experimental results**")
+st.write("**placeholder — AUROC will be populated after Day 12 OC-SVM evaluation**")
 st.dataframe(df_features, use_container_width=True)
 
 st.caption("""
-- **AUROC:** Area Under Receiver Operating Characteristic Curve (anomaly detection)
-- **Silhouette Score:** Measure of feature quality (range: -1 to 1, higher is better)
-- Combined features generally outperform individual features
+- **AUROC:** Area Under Receiver Operating Characteristic Curve (anomaly detection) — Day 12
+- **Silhouette Score:** Measure of feature quality (range: -1 to 1, higher is better) — Day 12
+- F3 features (inter_vehicle_dist_norm, dwell_time_sec, proximity_flag) added Day 11
 """)
 
 st.markdown("---")

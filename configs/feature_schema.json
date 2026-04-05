@@ -1,0 +1,48 @@
+{
+  "schema_version": "v1",
+  "schema_evolution_note": "Frozen Day 10 schema — updated only if new features added in Day 11+. Any change must bump schema_version and be noted in the thesis §3.4.3.",
+  "description": "CST3990 Block C features.csv column schema. F1+F2 defined Day 10. F3 added Day 11.",
+  "day_defined": 10,
+  "columns": [
+    {"name": "seq_id",              "type": "str",   "description": "Sequence identifier (e.g. MVI_20011)"},
+    {"name": "frame_idx",           "type": "int",   "description": "0-based frame index after warm-up stripping"},
+    {"name": "track_id",            "type": "int",   "description": "Unique track ID from _final.json"},
+    {"name": "cx",                  "type": "float", "description": "Centroid x in 640×640 image space"},
+    {"name": "cy",                  "type": "float", "description": "Centroid y in 640×640 image space"},
+    {"name": "bbox_x1",             "type": "float", "description": "Bounding box x1 in 640×640 space"},
+    {"name": "bbox_y1",             "type": "float", "description": "Bounding box y1 in 640×640 space"},
+    {"name": "bbox_x2",             "type": "float", "description": "Bounding box x2 in 640×640 space"},
+    {"name": "bbox_y2",             "type": "float", "description": "Bounding box y2 in 640×640 space"},
+    {"name": "conf",                "type": "float", "description": "Detection confidence. -1.0 = interpolated frame sentinel (Fix F22)"},
+    {"name": "is_interpolated",     "type": "bool",  "description": "True if frame was synthetically inserted by Day 9 post_processor"},
+    {"name": "velocity_norm",       "type": "float", "description": "Raw frame-to-frame Euclidean displacement from _final.json (640×640 space)"},
+    {"name": "vel_px_sec",          "type": "float", "description": "velocity_norm * fps — pixels/second proxy (Fix F07)"},
+    {"name": "vel_px_sec_smooth",   "type": "float", "description": "Rolling mean of vel_px_sec over speed_window=int(0.2*fps) frames per track"},
+    {"name": "vehicle_count",       "type": "int",   "description": "F1.1: unique active track_ids per frame"},
+    {"name": "roi_occupancy",       "type": "float", "description": "F1.2: vehicle_count / max_vehicle_count per clip. Full-frame ROI proxy (Fix F17)"},
+    {"name": "track_length_real",   "type": "int",   "description": "Genuine detection count for this track — computed from full pre-strip trajectory entries using interpolated==False (not from file header)"},
+    {"name": "split",               "type": "str",   "description": "train/val/test from logs/metadata.json split_seqs"},
+    {"name": "tracker",             "type": "str",   "description": "Selected tracker name from config_blockC.yaml"}
+  ],
+  "f3_columns_pending": [
+    "inter_vehicle_dist_norm",
+    "dwell_time_sec",
+    "proximity_flag"
+  ],
+  "f3_definitions_locked_day10": {
+    "dwell_time_sec": {
+      "definition": "cumulative",
+      "formula": "(frame_idx - track_first_frame_idx_post_warmup) / fps",
+      "unit": "seconds",
+      "rationale": "Cumulative dwell since first post-warm-up appearance. Stronger anomaly signal for Illegal Parking / Stalled Vehicle than instantaneous region-dwell. Instantaneous spatial dwell deferred pending camera calibration (Fix F19)."
+    }
+  },
+  "notes": [
+    "F3 columns are NOT present in Day 10 CSVs. They are added by Day 11.",
+    "Do NOT add placeholder NaN columns for F3 in Day 10 outputs.",
+    "is_interpolated=True rows carry conf=-1.0 as sentinel (Fix F22).",
+    "All bbox and centroid values are in 640×640 inference space (not original 960×540).",
+    "vel_px_sec is an image-space proxy — not calibrated to real-world km/h.",
+    "track_length_real counts genuine detections only (interpolated==False); computed from full pre-strip DataFrame — never from the post-warm-up view."
+  ]
+}

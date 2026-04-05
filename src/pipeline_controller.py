@@ -280,9 +280,49 @@ class PipelineController:
         self.run_block_b_analysis()
 
     def run_block_c(self):
-        """Block C - Feature extraction comparison (F1, F2, F3)."""
-        print("[PipelineController] Block C: Feature extraction - not yet implemented.")
-        #Day 10-12: Call src/feature_extractor.py
+        """Block C: Feature Extraction (Days 10-12).
+
+        Day 10 delivers:
+          - Generator-based clip loader (clip_feature_generator)
+          - F1 features: vehicle_count, roi_occupancy
+          - F2 features: vel_px_sec, vel_px_sec_smooth, is_interpolated
+          - features.csv written per-clip to logs/block_c/
+
+        Day 11 will add: scaler fitting, F3 features, AUROC computation.
+        """
+        from src.feature_extractor import clip_feature_generator, populate_config_blockc_tracker
+
+        with open("configs/config_blockC.yaml", "r") as f:
+            cfg = yaml.safe_load(f)
+        meta = json.load(open("logs/metadata.json"))
+
+        # Day 10: populate tracker selection if not yet set.
+        # populate_config_blockc_tracker() rewrites config_blockC.yaml via yaml.safe_dump()
+        # and returns the updated in-memory dict — always use the returned dict.
+        cfg = populate_config_blockc_tracker(cfg)
+
+        # —— Feature Contract Gate —————————————————————————————————————————————
+        # Hard stop if tracker field is still the Day 9 placeholder.
+        # This must be asserted here AND inside clip_feature_generator() for defence-in-depth.
+        assert cfg.get("tracker") not in (None, "", "<SELECTED_TRACKER_FROM_DAY9>"), (
+            "config_blockC.yaml 'tracker' field is not populated after populate_config_blockc_tracker(). "
+            "Verify that logs/block_b_results.json[\"trackers\"] has exactly one entry with 'selected: true'."
+        )
+
+        # Run generator over ALL sequences (train + val + test)
+        all_seqs = (
+            meta["split_seqs"]["train"] +
+            meta["split_seqs"]["val"]   +
+            meta["split_seqs"]["test"]
+        )
+
+        completed = 0
+        for completed_id in clip_feature_generator(all_seqs, meta, cfg):
+            print(f"[Block C] Features written: {completed_id}")
+            completed += 1
+
+        print(f"[Block C] Done. {completed}/{len(all_seqs)} clips processed.")
+        # Day 11 will add: scaler fitting, F3 features, AUROC computation
 
     def run_block_d(self):
         """Block D - Anomaly detection (Rule-based, OC-SVM, Isolation Forest)"""

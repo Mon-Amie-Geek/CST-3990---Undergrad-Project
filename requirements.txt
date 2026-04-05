@@ -43,3 +43,9 @@ plotly==5.22.0
 # Use git+ URL for reproducibility; the PyPI 'torchreid' package is outdated
 # Colab install: pip install git+https://github.com/KaiyangZhou/deep-person-reid.git filterpy --quiet
 torchreid @ git+https://github.com/KaiyangZhou/deep-person-reid.git
+
+# --- Day 10 additions ---
+# Block C feature extraction (src/feature_extractor.py) requires:
+#   pandas >= 2.0   — already pinned above as pandas==2.2.2  (satisfies >=2.0)
+#   pyyaml >= 6.0   — already pinned above as PyYAML==6.0.1  (satisfies >=6.0)
+# No new packages needed; minimum version constraints documented here for audit trail.
