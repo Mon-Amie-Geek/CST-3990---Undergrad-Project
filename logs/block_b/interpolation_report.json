@@ -1,0 +1,27 @@
+{
+  "max_interp_gap": 3,
+  "sort": {
+    "MVI_20062": {
+      "frames_interpolated": 93
+    },
+    "MVI_20063": {
+      "frames_interpolated": 153
+    }
+  },
+  "deepsort": {
+    "MVI_20062": {
+      "frames_interpolated": 25
+    },
+    "MVI_20063": {
+      "frames_interpolated": 16
+    }
+  },
+  "bytetrack": {
+    "MVI_20062": {
+      "frames_interpolated": 38
+    },
+    "MVI_20063": {
+      "frames_interpolated": 35
+    }
+  }
+}

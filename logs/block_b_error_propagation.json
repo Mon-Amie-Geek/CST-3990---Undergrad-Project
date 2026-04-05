@@ -1,0 +1,47 @@
+{
+  "note_n2_limitation": true,
+  "n_sequences": 2,
+  "statistical_note": "n=2 test sequences produces degenerate Pearson r (always \u00b11.0 or undefined). This is expected and is a methodological scaffold only. Block C will provide per-sequence speed_std across all splits (n=10), enabling a statistically meaningful correlation before final thesis reporting.",
+  "speed_std_note": "speed_std computed from velocity_norm proxy (raw frame-to-frame pixel displacement). Replace with Block C OC-SVM speed features for final thesis reporting.",
+  "results": {
+    "sort": {
+      "idsw_per_seq": {
+        "MVI_20062": 21,
+        "MVI_20063": 10
+      },
+      "speed_std_per_seq": {
+        "MVI_20062": 0.3642174818741787,
+        "MVI_20063": 0.33969315687507
+      },
+      "pearson_r": 1.0,
+      "p_value": 1.0,
+      "interpretation": "n=2: r=1.000 is degenerate (always \u00b11.0 for 2 points). Interpret as scaffold only; not statistically meaningful."
+    },
+    "deepsort": {
+      "idsw_per_seq": {
+        "MVI_20062": 0,
+        "MVI_20063": 0
+      },
+      "speed_std_per_seq": {
+        "MVI_20062": 0.12967404030422497,
+        "MVI_20063": 0.08889423712256869
+      },
+      "pearson_r": null,
+      "p_value": null,
+      "interpretation": "n=2: r=nan is degenerate (always \u00b11.0 for 2 points). Interpret as scaffold only; not statistically meaningful."
+    },
+    "bytetrack": {
+      "idsw_per_seq": {
+        "MVI_20062": 0,
+        "MVI_20063": 0
+      },
+      "speed_std_per_seq": {
+        "MVI_20062": 0.13959534652071678,
+        "MVI_20063": 0.057641249145502185
+      },
+      "pearson_r": null,
+      "p_value": null,
+      "interpretation": "n=2: r=nan is degenerate (always \u00b11.0 for 2 points). Interpret as scaffold only; not statistically meaningful."
+    }
+  }
+}

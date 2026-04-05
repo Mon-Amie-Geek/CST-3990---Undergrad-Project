@@ -1,0 +1,31 @@
+{
+  "selected_tracker": "sort",
+  "ranked_trackers": [
+    {
+      "rank": 1,
+      "tracker": "sort",
+      "idf1_mean": 0.04117707509212083,
+      "idsw_total": 31,
+      "fps_median": 1129.655,
+      "selected": true
+    },
+    {
+      "rank": 2,
+      "tracker": "deepsort",
+      "idf1_mean": 0.0008,
+      "idsw_total": 0,
+      "fps_median": 1063.68,
+      "selected": false
+    },
+    {
+      "rank": 3,
+      "tracker": "bytetrack",
+      "idf1_mean": 0.00065,
+      "idsw_total": 0,
+      "fps_median": 1231.37,
+      "selected": false
+    }
+  ],
+  "selection_criterion": "Primary: highest idf1_mean (identity consistency \u2014 critical for Block C feature quality). Tiebreaker 1: lowest idsw_total. Tiebreaker 2: highest fps_median.",
+  "rationale": "Selected 'sort': idf1_mean=0.0412, idsw_total=31, fps_median=1129.65. Tracker frozen for Blocks C and D."
+}

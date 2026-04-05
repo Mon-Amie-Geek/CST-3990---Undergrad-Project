@@ -1,47 +1,18 @@
-# config_blockC.yaml — Block B -> Block C bridge stub
-# Written by src/tracker_selector.py at Day 9 runtime.
-# This pre-populated version reflects the data-driven selection
-# (SORT wins: idf1_mean=0.0412 vs DeepSORT=0.0008 vs ByteTrack=0.00065).
-# tracker_selector.py will overwrite this with identical values when run_day9() executes.
-
 detector: yolov8n
 tracker: sort
-
-# Path components for Block C trajectory loading.
-# Block C must detect DAY7_LAYOUT at runtime (same Cell 4 logic as Day 9) and build:
-#   variant_a: logs/block_b/{tracker}/trajectories_{seq}_final.json
-#   variant_b: logs/block_b/trajectories/{seq}_{tracker}_final.json
 trajectory_base: logs/block_b/
 trajectory_suffix: _final.json
-# trajectory_stage: semantic alias for trajectory_suffix (avoids suffix-string coupling)
 trajectory_stage: final
-
-# Reproducibility
 warmup_frames: 10
 seed: 42
 metadata_source: logs/metadata.json
 split_seqs_key: split_seqs
-fps_source: metadata.json  # NEVER hardcode FPS in Block C
-
-# Schema — locks trajectory schema version (increment to v2 if schema changes)
+fps_source: metadata.json
 schema_version: v1
 feature_schema: configs/trajectory_schema.json
-trajectory_schema: configs/trajectory_schema.json  # alias for checklist compatibility
 feature_trajectory_type: _final.json
-
-# Block C feature extraction parameters (populated Day 10)
-speed_window_sec: 0.2
-prox_window_sec: 2.0
-roi_policy: full_frame
-scaler_fit_split: ua_detrac_train_normal_only
-feature_sets:
-  - F1_only
-  - F2_only
-  - F2_F3
-  - all
-
-_note_1: Full population deferred to Day 10 - Block C feature extraction
-_note_2: Tracker frozen here - do not change after Day 9
+_note_1: "Full population deferred to Day 10 \u2014 Block C feature extraction"
+_note_2: "Tracker frozen here \u2014 do not change after Day 9"
 _note_3: Fragment filter (min=15) and interpolation (max_gap=3) applied
-_note_4: Detector frozen YOLOv8n - source logs/block_a/block_a_results.csv
-_note_5: fps_source=metadata.json - never hardcode FPS in Block C
+_note_4: "Detector frozen: YOLOv8n \u2014 source: logs/block_a/block_a_results.csv"
+_note_5: "fps_source=metadata.json \u2014 never hardcode FPS in Block C"

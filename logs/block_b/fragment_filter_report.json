@@ -1,0 +1,39 @@
+{
+  "min_track_length": 15,
+  "sort": {
+    "MVI_20062": {
+      "tracks_before": 49,
+      "tracks_after": 34,
+      "discarded": 15
+    },
+    "MVI_20063": {
+      "tracks_before": 63,
+      "tracks_after": 42,
+      "discarded": 21
+    }
+  },
+  "deepsort": {
+    "MVI_20062": {
+      "tracks_before": 63,
+      "tracks_after": 44,
+      "discarded": 19
+    },
+    "MVI_20063": {
+      "tracks_before": 71,
+      "tracks_after": 45,
+      "discarded": 26
+    }
+  },
+  "bytetrack": {
+    "MVI_20062": {
+      "tracks_before": 277,
+      "tracks_after": 166,
+      "discarded": 111
+    },
+    "MVI_20063": {
+      "tracks_before": 381,
+      "tracks_after": 204,
+      "discarded": 177
+    }
+  }
+}

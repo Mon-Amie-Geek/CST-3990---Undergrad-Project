@@ -30,7 +30,7 @@
           "fps": 969.56
         }
       },
-      "selected": false
+      "selected": true
     },
     {
       "tracker": "deepsort",
@@ -101,5 +101,7 @@
       "selected": false
     }
   ],
-  "note": "Tracker selection deferred to Day 9 after error propagation correlation "
+  "note": "Tracker selection deferred to Day 9 after error propagation correlation ",
+  "selection_criterion": "Primary: highest idf1_mean (identity consistency \u2014 critical for Block C feature quality). Tiebreaker 1: lowest idsw_total. Tiebreaker 2: highest fps_median.",
+  "selection_rationale": "Selected 'sort': idf1_mean=0.0412, idsw_total=31, fps_median=1129.65. Tracker frozen for Blocks C and D."
 }
