@@ -30,6 +30,11 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
+# motmetrics uses np.asfarray which was removed in NumPy 2.0 — patch before import
+import numpy as _np_patch
+if not hasattr(_np_patch, 'asfarray'):
+    _np_patch.asfarray = lambda a, dtype=float: _np_patch.asarray(a, dtype=dtype)
+
 import motmetrics as mm
 
 # --- Seeds before any model init ---
@@ -109,24 +114,20 @@ def build_reid_model(drive_models_dir="/content/drive/MyDrive/CST3990/models"):
         pretrained=False
     )
 
-    zoo_key = (
-        'osnet_x1_0_veri_256x128_amsgrad_ep60_lr0.0015_b64_fb10_'
-        'softmax_labelsmooth_flip'
-    )
-
     if os.path.exists(weight_path):
         torchreid.utils.load_pretrained_weights(model, weight_path)
         logger.info(f"VeRi-776 weights loaded from Drive cache: {weight_path}")
         print(f"  [DeepSORT] VeRi-776 weights loaded from Drive cache ✓")
     else:
-        # First run: download via FeatureExtractor (handles zoo key download)
-        # load_pretrained_weights only accepts file paths — zoo download requires FeatureExtractor
+        # First run: download via FeatureExtractor using the 'veri' zoo key.
+        # The long filename string is not a valid zoo key — torchreid recognises
+        # dataset shortnames ('veri', 'msmt17', 'imagenet', etc.).
         os.makedirs(drive_models_dir, exist_ok=True)
-        print(f"  [DeepSORT] Downloading VeRi-776 weights (zoo key: {zoo_key}) ...")
+        print(f"  [DeepSORT] Downloading VeRi-776 weights (zoo key: 'veri') ...")
         device_str = "cuda" if torch.cuda.is_available() else "cpu"
         fe = torchreid.utils.FeatureExtractor(
             model_name='osnet_x1_0',
-            model_path=zoo_key,
+            model_path='veri',
             device=device_str
         )
         model = fe.model
