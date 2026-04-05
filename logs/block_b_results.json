@@ -1,6 +1,9 @@
 {
   "block": "B",
-  "evaluation_split": ["MVI_20062", "MVI_20063"],
+  "evaluation_split": [
+    "MVI_20062",
+    "MVI_20063"
+  ],
   "selected_detector": "yolov8n",
   "trackers": [
     {
@@ -32,27 +35,71 @@
     {
       "tracker": "deepsort",
       "reid_model": "osnet_x1_0_veri_776",
-      "mota_mean": null,
-      "idf1_mean": null,
-      "idsw_total": null,
-      "fragmentations_total": null,
-      "fps_median": null,
-      "per_seq": {},
-      "selected": false,
-      "note": "Populated by Day 8 Colab run — see notebooks/day8_block_b_trackers.ipynb"
+      "mota_mean": -1.37005,
+      "idf1_mean": 0.0008,
+      "idsw_total": 0,
+      "fragmentations_total": 0,
+      "fps_median": 1020.33,
+      "per_seq": {
+        "MVI_20062": {
+          "seq_id": "MVI_20062",
+          "tracker": "deepsort",
+          "reid_model": "osnet_x1_0_veri_776",
+          "mota": -1.5805,
+          "idf1": 0.0009,
+          "idsw": 0,
+          "fragmentations": 0,
+          "fps_median": 1042.23,
+          "latency_p95_ms": 1.6787
+        },
+        "MVI_20063": {
+          "seq_id": "MVI_20063",
+          "tracker": "deepsort",
+          "reid_model": "osnet_x1_0_veri_776",
+          "mota": -1.1596,
+          "idf1": 0.0007,
+          "idsw": 0,
+          "fragmentations": 0,
+          "fps_median": 998.42,
+          "latency_p95_ms": 1.6892
+        }
+      },
+      "selected": false
     },
     {
       "tracker": "bytetrack",
       "reid_model": "none",
-      "mota_mean": null,
-      "idf1_mean": null,
-      "idsw_total": null,
-      "fragmentations_total": null,
-      "fps_median": null,
-      "per_seq": {},
-      "selected": false,
-      "note": "Populated by Day 8 Colab run — see notebooks/day8_block_b_trackers.ipynb"
+      "mota_mean": -2.07195,
+      "idf1_mean": 0.00065,
+      "idsw_total": 0,
+      "fragmentations_total": 0,
+      "fps_median": 1114.91,
+      "per_seq": {
+        "MVI_20062": {
+          "seq_id": "MVI_20062",
+          "tracker": "bytetrack",
+          "reid_model": "none",
+          "mota": -2.3225,
+          "idf1": 0.0007,
+          "idsw": 0,
+          "fragmentations": 0,
+          "fps_median": 1254.19,
+          "latency_p95_ms": 1.3275
+        },
+        "MVI_20063": {
+          "seq_id": "MVI_20063",
+          "tracker": "bytetrack",
+          "reid_model": "none",
+          "mota": -1.8214,
+          "idf1": 0.0006,
+          "idsw": 0,
+          "fragmentations": 0,
+          "fps_median": 975.63,
+          "latency_p95_ms": 1.8281
+        }
+      },
+      "selected": false
     }
   ],
-  "note": "Tracker selection deferred to Day 9 after error propagation correlation (Fix F30 supplement). DeepSORT and ByteTrack rows populated by Colab runtime; null fields updated after run."
+  "note": "Tracker selection deferred to Day 9 after error propagation correlation "
 }

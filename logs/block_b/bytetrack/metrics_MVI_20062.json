@@ -1,0 +1,11 @@
+{
+  "seq_id": "MVI_20062",
+  "tracker": "bytetrack",
+  "reid_model": "none",
+  "mota": -2.3225,
+  "idf1": 0.0007,
+  "idsw": 0,
+  "fragmentations": 0,
+  "fps_median": 1254.19,
+  "latency_p95_ms": 1.3275
+}
