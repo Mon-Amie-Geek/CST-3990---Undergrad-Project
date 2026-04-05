@@ -1,6 +1,7 @@
 # configs/dataset.yaml
 # Created as early preparation - To be actively used for YOLOv8n training
 
+# NOTE: Colab-only path — used exclusively during YOLOv8 training on Google Colab
 path: /content/drive/MyDrive/CST3990/data/ua_detrac/processed
 train: images/train
 val: images/val

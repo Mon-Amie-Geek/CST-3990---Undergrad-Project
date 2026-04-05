@@ -35,6 +35,8 @@ joblib==1.4.2
 matplotlib==3.9.0
 #Advanced statistical visualisation library
 seaborn==0.13.2
+#Interactive plotting library (used in Streamlit app pages)
+plotly==5.22.0
 
 # --- Day 8 additions ---
 # Deep-person-reid (torchreid) — VeRi-776 ReID backbone for DeepSORT
