@@ -30,11 +30,6 @@ from collections import defaultdict
 
 import numpy as np
 import cv2
-# motmetrics uses np.asfarray which was removed in NumPy 2.0 — patch before import
-import numpy as _np_patch
-if not hasattr(_np_patch, 'asfarray'):
-    _np_patch.asfarray = lambda a, dtype=float: _np_patch.asarray(a, dtype=dtype)
-
 import motmetrics as mm
 
 # --- Seeds before any model init ---
@@ -448,14 +443,15 @@ def _evaluate(seq_id, trajectories_dict, gt_xml_path,
         pred_dict = pred_by_frame.get(fidx, {})
         gt_ids    = list(gt_dict.keys())
         pred_ids  = list(pred_dict.keys())
-        dist_matrix = (
-            mm.distances.iou_matrix(
+        if gt_ids and pred_ids:
+            iou = _iou_matrix(
                 [gt_dict[i]   for i in gt_ids],
-                [pred_dict[i] for i in pred_ids],
-                max_iou=1 - iou_thresh_eval)
-            if gt_ids and pred_ids
-            else np.full((len(gt_ids), len(pred_ids)), np.nan)
-        )
+                [pred_dict[i] for i in pred_ids]
+            )
+            # motmetrics expects distance (1-IoU), NaN where IoU < threshold
+            dist_matrix = np.where(iou >= iou_thresh_eval, 1.0 - iou, np.nan)
+        else:
+            dist_matrix = np.full((len(gt_ids), len(pred_ids)), np.nan)
         acc.update(gt_ids, pred_ids, dist_matrix)
 
     mh      = mm.metrics.create()
