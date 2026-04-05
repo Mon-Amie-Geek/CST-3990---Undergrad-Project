@@ -24,6 +24,9 @@ import logging
 import numpy as np
 from scipy.stats import pearsonr
 
+from src.seed_control import set_all_seeds
+set_all_seeds()  # MUST be at module top — before any numpy/scipy operation
+
 logger = logging.getLogger(__name__)
 
 
@@ -458,6 +461,8 @@ def run_error_propagation_analysis(
         }
 
     output = {
+        "note_n2_limitation": True,   # checklist field — confirms n=2 degenerate result documented
+        "n_sequences":        len(test_seqs),
         "statistical_note": (
             "n=2 test sequences produces degenerate Pearson r (always ±1.0 or undefined). "
             "This is expected and is a methodological scaffold only. "
