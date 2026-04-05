@@ -6,6 +6,6 @@
   "idf1": 0.0006,
   "idsw": 0,
   "fragmentations": 0,
-  "fps_median": 975.63,
-  "latency_p95_ms": 1.8281
+  "fps_median": 1041.0,
+  "latency_p95_ms": 2.2062
 }

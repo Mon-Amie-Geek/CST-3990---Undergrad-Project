@@ -39,7 +39,7 @@
       "idf1_mean": 0.0008,
       "idsw_total": 0,
       "fragmentations_total": 0,
-      "fps_median": 1020.33,
+      "fps_median": 1063.68,
       "per_seq": {
         "MVI_20062": {
           "seq_id": "MVI_20062",
@@ -49,8 +49,8 @@
           "idf1": 0.0009,
           "idsw": 0,
           "fragmentations": 0,
-          "fps_median": 1042.23,
-          "latency_p95_ms": 1.6787
+          "fps_median": 1075.48,
+          "latency_p95_ms": 1.6834
         },
         "MVI_20063": {
           "seq_id": "MVI_20063",
@@ -60,8 +60,8 @@
           "idf1": 0.0007,
           "idsw": 0,
           "fragmentations": 0,
-          "fps_median": 998.42,
-          "latency_p95_ms": 1.6892
+          "fps_median": 1051.88,
+          "latency_p95_ms": 1.6867
         }
       },
       "selected": false
@@ -73,7 +73,7 @@
       "idf1_mean": 0.00065,
       "idsw_total": 0,
       "fragmentations_total": 0,
-      "fps_median": 1114.91,
+      "fps_median": 1231.37,
       "per_seq": {
         "MVI_20062": {
           "seq_id": "MVI_20062",
@@ -83,8 +83,8 @@
           "idf1": 0.0007,
           "idsw": 0,
           "fragmentations": 0,
-          "fps_median": 1254.19,
-          "latency_p95_ms": 1.3275
+          "fps_median": 1421.74,
+          "latency_p95_ms": 1.729
         },
         "MVI_20063": {
           "seq_id": "MVI_20063",
@@ -94,8 +94,8 @@
           "idf1": 0.0006,
           "idsw": 0,
           "fragmentations": 0,
-          "fps_median": 975.63,
-          "latency_p95_ms": 1.8281
+          "fps_median": 1041.0,
+          "latency_p95_ms": 2.2062
         }
       },
       "selected": false

@@ -16,8 +16,8 @@
   "fps": 25.0,
   "frame_width": 960,
   "frame_height": 540,
-  "fps_median_tracker": 975.63,
-  "latency_p95_ms": 1.8281,
+  "fps_median_tracker": 1041.0,
+  "latency_p95_ms": 2.2062,
   "gap_analysis": {
     "1": {
       "max_gap": 0,
