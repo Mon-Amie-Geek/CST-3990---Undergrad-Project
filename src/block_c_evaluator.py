@@ -669,14 +669,18 @@ def run_auroc_comparison(
         best_model_path = os.path.join(output_dir, "ocsvm_trained_best.pkl")
         joblib.dump(
             {
-                "model":            best_ocsvm_final,
-                "feature_set_name": best_fs_name,
-                "feature_columns":  best_feature_cols,
-                "best_nu":          best_nu_for_best,
-                "auroc":            best_auroc,
-                "train_rows":       len(X_train_best_full),
-                "fit_split":        "train",
-                "seed":             42,
+                "model":                    best_ocsvm_final,
+                "feature_set_name":         best_fs_name,
+                "feature_columns":          best_feature_cols,
+                "best_nu":                  best_nu_for_best,
+                "auroc":                    best_auroc,
+                "train_rows":               len(X_train_best_full),
+                "fit_split":                "train",
+                "seed":                     42,
+                "scaler_refitted_today":    False,
+                "scaler_loaded_from":       scaler_path,
+                "scaler_fitted_day":        11,
+                "y_val_binary_constructed_once": True,
             },
             best_model_path,
         )
