@@ -996,63 +996,85 @@ def fit_and_save_scaler(config: dict, metadata: dict):
     return scaler
 
 
-def apply_scaler_transform(
-    df: pd.DataFrame,
-    scaler,
-    config: dict,
-    label: str = "unknown",
-) -> pd.DataFrame:
+def apply_scaler_transform(df: pd.DataFrame, scaler, config: dict,
+                           label: str = "unknown") -> pd.DataFrame:
     """
     Transform feature columns using a fitted MinMaxScaler.
-    Clips output to [0,1] and logs the clipping percentage as a domain-shift
-    indicator (Fix F18).
+    Clips output to [0,1] and logs clipping % as a domain-shift indicator (Fix F18).
 
-    Parameters
-    ----------
-    df     : DataFrame containing feature columns (F1+F2+F3)
-    scaler : fitted MinMaxScaler from fit_and_save_scaler()
-    config : config_blockC.yaml dict
-    label  : descriptive label for logging (e.g. "train", "val", "test")
-
-    Returns a NEW DataFrame with transformed columns (in-place mutation avoided).
+    Important:
+    - Raw F3 may legitimately contain NaN (e.g. inter_vehicle_dist_norm on single-track frames).
+    - Those NaNs are preserved; they are NOT treated as scaler failures.
+    - This function must only fail on unexpected non-finite values such as +inf/-inf
+      or newly corrupted outputs in rows that were valid for transform.
     """
+    import numpy as np
+    import pandas as pd
+
     fit_cols = [c for c in SCALER_FIT_COLUMNS if c in df.columns]
     df_out = df.copy()
-    X = df_out[fit_cols].values  # shape (n_rows, n_fit_cols)
 
-    X_scaled = scaler.transform(X)  # may exceed [0,1] for out-of-distribution data
+    # Rows eligible for transform: all scaler columns present and finite/non-null
+    valid_mask = df_out[fit_cols].notna().all(axis=1)
 
-    # Fix F18: clip to [0,1] AFTER transform; log clip percentage
+    n_total = len(df_out)
+    n_valid = int(valid_mask.sum())
+    n_skipped = n_total - n_valid
+
+    if n_valid == 0:
+        raise RuntimeError(
+            f"[{label}] No valid rows available for scaler transform. "
+            "All rows contain NaN in at least one scaler-fit column."
+        )
+
+    # Keep DataFrame input to preserve feature names and avoid sklearn warning
+    X_valid = df_out.loc[valid_mask, fit_cols]
+
+    X_scaled = scaler.transform(X_valid)
+
+    # Domain-shift logging before clipping
     n_clipped = int(np.sum((X_scaled > 1.0) | (X_scaled < 0.0)))
     pct_clipped = 100.0 * n_clipped / X_scaled.size if X_scaled.size > 0 else 0.0
+
     if pct_clipped > 0:
         logger.warning(
             f"[{label}] Fix F18 domain-shift indicator: "
-            f"{n_clipped} values ({pct_clipped:.2f}%) clipped to [0,1] after "
-            "MinMaxScaler transform. High clip % may indicate distribution shift "
-            "between train (UA-DETRAC) and this split."
+            f"{n_clipped} values ({pct_clipped:.2f}%) clipped to [0,1] after MinMaxScaler transform. "
+            "High clip % may indicate distribution shift between train (UA-DETRAC) and this split."
         )
     else:
-        logger.info(
-            f"[{label}] No out-of-range values after scaler transform. Clip % = 0.00%."
-        )
+        logger.info(f"[{label}] No out-of-range values after scaler transform. Clip % = 0.00%.")
+
     X_scaled = np.clip(X_scaled, 0.0, 1.0)
 
-    # Overwrite only the fit columns in the output DataFrame
-    for i, col in enumerate(fit_cols):
-        df_out[col] = X_scaled[:, i]
-
-    # Post-transform safety: no NaN/inf allowed in scaled columns
-    scaled_block = df_out[fit_cols].to_numpy()
-    if np.isnan(scaled_block).any() or not np.isfinite(scaled_block).all():
+    # Fail only if the transformed VALID rows contain unexpected non-finite values
+    if not np.isfinite(X_scaled).all():
         raise RuntimeError(
-            f"[{label}] Non-finite values detected after scaler transform. "
-            "Check zero-variance guard and input NaN handling before writing "
-            "*_features_scaled.csv."
+            f"[{label}] Non-finite values produced on rows eligible for scaler transform. "
+            "Check zero-variance guard and scaler state."
+        )
+
+    # Write scaled values back only to valid rows
+    df_out.loc[valid_mask, fit_cols] = X_scaled
+
+    # Preserve original NaN rows for semantically undefined values
+    if n_skipped > 0:
+        logger.warning(
+            f"[{label}] {n_skipped} / {n_total} rows skipped during scaler transform "
+            "because at least one scaler-fit column was NaN "
+            "(expected for undefined interaction features such as single-track frames)."
+        )
+
+    # Still fail on unexpected infinities anywhere in output
+    numeric_block = df_out[fit_cols].to_numpy()
+    if np.isinf(numeric_block).any():
+        raise RuntimeError(
+            f"[{label}] Infinite values detected after scaler transform."
         )
 
     logger.info(
-        f"[{label}] Scaler transform applied to {len(fit_cols)} columns "
-        f"on {len(df_out)} rows."
+        f"[{label}] Scaler transform applied to {n_valid} valid rows; "
+        f"{n_skipped} rows preserved with original NaN structure."
     )
+
     return df_out
