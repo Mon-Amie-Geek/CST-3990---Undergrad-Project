@@ -1,10 +1,58 @@
 {
   "min_track_length": 15,
   "processed_sequences": [
+    "MVI_20011",
+    "MVI_20012",
+    "MVI_20032",
+    "MVI_20034",
+    "MVI_20035",
+    "MVI_20051",
+    "MVI_20052",
+    "MVI_20061",
     "MVI_20062",
     "MVI_20063"
   ],
   "sort": {
+    "MVI_20011": {
+      "tracks_before": 100,
+      "tracks_after": 66,
+      "discarded": 34
+    },
+    "MVI_20012": {
+      "tracks_before": 97,
+      "tracks_after": 62,
+      "discarded": 35
+    },
+    "MVI_20032": {
+      "tracks_before": 26,
+      "tracks_after": 14,
+      "discarded": 12
+    },
+    "MVI_20034": {
+      "tracks_before": 111,
+      "tracks_after": 69,
+      "discarded": 42
+    },
+    "MVI_20035": {
+      "tracks_before": 137,
+      "tracks_after": 90,
+      "discarded": 47
+    },
+    "MVI_20051": {
+      "tracks_before": 100,
+      "tracks_after": 72,
+      "discarded": 28
+    },
+    "MVI_20052": {
+      "tracks_before": 79,
+      "tracks_after": 60,
+      "discarded": 19
+    },
+    "MVI_20061": {
+      "tracks_before": 89,
+      "tracks_after": 56,
+      "discarded": 33
+    },
     "MVI_20062": {
       "tracks_before": 49,
       "tracks_after": 34,
@@ -17,6 +65,46 @@
     }
   },
   "deepsort": {
+    "MVI_20011": {
+      "tracks_before": 144,
+      "tracks_after": 105,
+      "discarded": 39
+    },
+    "MVI_20012": {
+      "tracks_before": 124,
+      "tracks_after": 85,
+      "discarded": 39
+    },
+    "MVI_20032": {
+      "tracks_before": 33,
+      "tracks_after": 25,
+      "discarded": 8
+    },
+    "MVI_20034": {
+      "tracks_before": 138,
+      "tracks_after": 100,
+      "discarded": 38
+    },
+    "MVI_20035": {
+      "tracks_before": 185,
+      "tracks_after": 127,
+      "discarded": 58
+    },
+    "MVI_20051": {
+      "tracks_before": 125,
+      "tracks_after": 87,
+      "discarded": 38
+    },
+    "MVI_20052": {
+      "tracks_before": 104,
+      "tracks_after": 74,
+      "discarded": 30
+    },
+    "MVI_20061": {
+      "tracks_before": 104,
+      "tracks_after": 77,
+      "discarded": 27
+    },
     "MVI_20062": {
       "tracks_before": 63,
       "tracks_after": 44,
@@ -29,6 +117,46 @@
     }
   },
   "bytetrack": {
+    "MVI_20011": {
+      "tracks_before": 634,
+      "tracks_after": 289,
+      "discarded": 345
+    },
+    "MVI_20012": {
+      "tracks_before": 398,
+      "tracks_after": 228,
+      "discarded": 170
+    },
+    "MVI_20032": {
+      "tracks_before": 104,
+      "tracks_after": 61,
+      "discarded": 43
+    },
+    "MVI_20034": {
+      "tracks_before": 548,
+      "tracks_after": 340,
+      "discarded": 208
+    },
+    "MVI_20035": {
+      "tracks_before": 580,
+      "tracks_after": 301,
+      "discarded": 279
+    },
+    "MVI_20051": {
+      "tracks_before": 492,
+      "tracks_after": 272,
+      "discarded": 220
+    },
+    "MVI_20052": {
+      "tracks_before": 325,
+      "tracks_after": 182,
+      "discarded": 143
+    },
+    "MVI_20061": {
+      "tracks_before": 596,
+      "tracks_after": 393,
+      "discarded": 203
+    },
     "MVI_20062": {
       "tracks_before": 277,
       "tracks_after": 166,

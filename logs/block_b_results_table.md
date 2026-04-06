@@ -21,7 +21,7 @@
 | DeepSORT (VeRi-776) | 134 | 89 | 45 | 41 |
 | BYTETRACK | 658 | 370 | 288 | 73 |
 
-*(Values summed across MVI_20062 and MVI_20063)*
+*(Values summed across MVI_20062, MVI_20063 — test split)*
 
 Fragment filter: `min_track_length=15` (Fix F11).
 Interpolation: `max_interp_gap=3 frames` (Fix F22). Gaps >3 frames: track split. No ghost interpolation.
