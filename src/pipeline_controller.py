@@ -287,10 +287,10 @@ class PipelineController:
         # --- Step 1: Pre-flight checks on test split only ---
         print("\n=== Step 1: Pre-flight Checks ===")
         schema_entry_fields = preflight_checks(
-            metadata=metadata,
-            test_seqs=test_seqs,
-            trackers=trackers,
-            day7_layout=day7_layout,
+            metadata,
+            test_seqs,
+            trackers,
+            day7_layout,
         )
 
         # --- Step 2: discover which sequences can actually be processed ---
