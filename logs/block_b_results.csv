@@ -1,0 +1,4 @@
+tracker,reid_model,mota_mean,idf1_mean,idsw_total,fragmentations_total,fps_median,selected
+sort,none,-0.7775226785047951,0.04117707509212083,31,31,1129.655,True
+deepsort,osnet_x1_0_veri_776,-1.37005,0.0008,0,0,1063.68,False
+bytetrack,none,-2.07195,0.00065,0,0,1231.37,False

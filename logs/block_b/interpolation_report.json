@@ -1,5 +1,9 @@
 {
   "max_interp_gap": 3,
+  "processed_sequences": [
+    "MVI_20062",
+    "MVI_20063"
+  ],
   "sort": {
     "MVI_20062": {
       "frames_interpolated": 93
