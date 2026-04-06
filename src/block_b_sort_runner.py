@@ -159,11 +159,12 @@ def gt_frame_to_cache_idx(gt_frame_num, cache_base):
 
 # Core: run SORT on one sequence
 
-def run_sort_on_sequence(seq_id):
+def run_sort_on_sequence(seq_id, split=None):
     # Loads frozen detections from cache
     # Returns warmup_boundary, frame_results (contains detections frame by frame)
+    _split = split if split is not None else SPLIT
     warmup_boundary, frame_results = load_cache(
-        seq_id, SPLIT, DETECTOR_NAME, CACHE_DIR)
+        seq_id, _split, DETECTOR_NAME, CACHE_DIR)
 
     # Loads meta - needed for fps, frame size
     meta           = load_metadata(seq_id)
@@ -360,20 +361,41 @@ def evaluate_with_motmetrics(seq_id, raw_trajectories,
 
 # Main runner: Runs tracker/ evaluation across all sequences in split
 
-def run_all_sequences(seq_ids, gt_root):
+def run_all_sequences(seq_ids, gt_root, seq_split_map=None):
+    """
+    Run SORT on a list of sequences.
+
+    Args:
+        seq_ids:       list of sequence IDs to process.
+        gt_root:       path to UA-DETRAC annotation XMLs.
+        seq_split_map: optional dict mapping seq_id -> split string
+                       (e.g. {"MVI_20011": "train", "MVI_20062": "test"}).
+                       Sequences not in the map fall back to the module-level
+                       SPLIT value read from config_blockB.yaml.
+
+    Returns:
+        {
+          "per_seq":   {seq_id: {mota, idf1, idsw, fragmentations, fps_median}},
+          "aggregate": {mota_mean, idf1_mean, idsw_total,
+                        fragmentations_total, fps_median}
+        }
+        Empty dicts are returned for both keys when no sequences succeed.
+    """
     # Captures git version of code
     commit_hash = get_commit_hash()
-    # List to collect 
+    # List to collect
     all_results = []
     timing_rows = []
 
     for seq_id in seq_ids:
+        # Determine which detection-cache split to use for this sequence
+        seq_split = (seq_split_map or {}).get(seq_id, SPLIT)
         # Readable separator in console output
         print(f"\n{'='*60}")
-        print(f"[SORT] {seq_id}")
+        print(f"[SORT] {seq_id}  (split={seq_split})")
         try:
             # Runs tracking on one sequence
-            raw_traj, warmup_b, meta, timing = run_sort_on_sequence(seq_id)
+            raw_traj, warmup_b, meta, timing = run_sort_on_sequence(seq_id, split=seq_split)
             # Shows how many tracks were produced
             print(f"  Raw tracks  : {len(raw_traj)}")
             print(f"  Tracker FPS : {timing['tracker_fps']:.1f} "
@@ -430,8 +452,8 @@ def run_all_sequences(seq_ids, gt_root):
     # If all sequences failed, stop.
     if not all_results:
         print("No results produced.")
-        return []
-    
+        return {"per_seq": {}, "aggregate": {}}
+
     # Saves main results to CSV
     df = pd.DataFrame(all_results)
     df.to_csv(os.path.join(LOG_DIR, 'block_b_sort_results.csv'), index=False)
@@ -460,7 +482,26 @@ def run_all_sequences(seq_ids, gt_root):
     print(f"Total IDSW: {df['num_switches'].sum()}")
     print(f"Mean FPS  : {df['tracker_fps'].mean():.1f}")
     print("\nFragment filter (Day 9) | DeepSORT+ByteTrack (Day 8)")
-    return all_results
+
+    # Build per_seq and aggregate dicts (matching deepsort/bytetrack return format)
+    per_seq = {
+        r['seq_id']: {
+            "mota"          : r['mota'],
+            "idf1"          : r['idf1'],
+            "idsw"          : r['num_switches'],
+            "fragmentations": r['num_fragmentations'],
+            "fps_median"    : r['tracker_fps'],
+        }
+        for r in all_results
+    }
+    aggregate = {
+        "mota_mean"           : round(float(df['mota'].mean()),             6),
+        "idf1_mean"           : round(float(df['idf1'].mean()),             6),
+        "idsw_total"          : int(df['num_switches'].sum()),
+        "fragmentations_total": int(df['num_fragmentations'].sum()),
+        "fps_median"          : round(float(df['tracker_fps'].median()),    2),
+    }
+    return {"per_seq": per_seq, "aggregate": aggregate}
 
 
 # Entry point 

@@ -37,9 +37,14 @@ class PipelineController:
         """
         Block B — Multi-Object Tracking (Days 7+8).
 
-        Runs all three trackers:
-          - SORT (Day 7)
-          - DeepSORT (Day 8)
+        Runs all three trackers on ALL split sequences (train + val + test) so
+        that Block C / Day 9 post-processing can produce _final.json files for
+        all 10 clips.  Evaluation metrics stored in block_b_results.json are
+        computed exclusively over the test split to preserve comparability.
+
+        Trackers:
+          - SORT      (Day 7)
+          - DeepSORT  (Day 8)
           - ByteTrack (Day 8)
 
         Tracker selection is deferred to Day 9 after error propagation correlation.
@@ -49,27 +54,83 @@ class PipelineController:
         from src.tracker_deepsort import run_deepsort_on_sequences
 
         cfg = self.cfg
-        test_seqs = ["MVI_20062", "MVI_20063"]  # frozen Block B evaluation split
+        gt_root = "data/ua_detrac/annotations"
 
-        # --- SORT (Day 7) ---
-        sort_results = _sort_runner(
-            seq_ids=test_seqs,
-            gt_root="data/ua_detrac/annotations",
+        # --- Load all sequences from metadata (source of truth) ---
+        with open("logs/metadata.json", "r") as f:
+            metadata = json.load(f)
+
+        train_seqs = metadata["split_seqs"]["train"]
+        val_seqs   = metadata["split_seqs"]["val"]
+        test_seqs  = metadata["split_seqs"]["test"]
+        all_seqs   = train_seqs + val_seqs + test_seqs
+
+        # Map each sequence to its detection-cache split
+        seq_split_map = (
+            {s: "train" for s in train_seqs}
+            | {s: "val"   for s in val_seqs}
+            | {s: "test"  for s in test_seqs}
         )
 
-        # --- DeepSORT (Day 8) ---
+        # --- SORT (Day 7): all sequences; test-only aggregate stored ---
+        sort_all = _sort_runner(
+            seq_ids=all_seqs,
+            gt_root=gt_root,
+            seq_split_map=seq_split_map,
+        )
+        # Filter aggregate to test sequences so stored metrics stay comparable
+        test_sort_rows = {
+            s: v for s, v in sort_all.get("per_seq", {}).items()
+            if s in test_seqs
+        }
+        if test_sort_rows:
+            import numpy as np
+            sort_results = {
+                "per_seq": test_sort_rows,
+                "aggregate": {
+                    "mota_mean"           : round(float(
+                        sum(v["mota"] for v in test_sort_rows.values()) / len(test_sort_rows)
+                    ), 6),
+                    "idf1_mean"           : round(float(
+                        sum(v["idf1"] for v in test_sort_rows.values()) / len(test_sort_rows)
+                    ), 6),
+                    "idsw_total"          : sum(v["idsw"] for v in test_sort_rows.values()),
+                    "fragmentations_total": sum(v["fragmentations"] for v in test_sort_rows.values()),
+                    "fps_median"          : round(float(
+                        np.median([v["fps_median"] for v in test_sort_rows.values()])
+                    ), 2),
+                },
+            }
+        else:
+            sort_results = sort_all  # fallback: use whatever was computed
+
+        # --- DeepSORT (Day 8): test split for metrics; other splits for trajectories ---
         deepsort_results = run_deepsort_on_sequences(
             seq_ids=test_seqs,
             split="test",
             config=cfg,
         )
+        for split_name, split_seqs in [("val", val_seqs), ("train", train_seqs)]:
+            if split_seqs:
+                run_deepsort_on_sequences(
+                    seq_ids=split_seqs,
+                    split=split_name,
+                    config=cfg,
+                )
 
-        # --- ByteTrack (Day 8) ---
+        # --- ByteTrack (Day 8): test split for metrics; other splits for trajectories ---
         bytetrack_results = run_bytetrack_on_sequences(
             seq_ids=test_seqs,
             split="test",
             config=cfg,
         )
+        for split_name, split_seqs in [("val", val_seqs), ("train", train_seqs)]:
+            if split_seqs:
+                run_bytetrack_on_sequences(
+                    seq_ids=split_seqs,
+                    split=split_name,
+                    config=cfg,
+                )
 
         self._save_block_b_results(sort_results, deepsort_results, bytetrack_results)
 
@@ -83,13 +144,18 @@ class PipelineController:
         """Persist aggregated Block B results to logs/block_b_results.json."""
         results_path = "logs/block_b_results.json"
 
+        # Derive test sequences from metadata (source of truth)
+        with open("logs/metadata.json", "r") as f:
+            _meta = json.load(f)
+        _test_seqs = _meta["split_seqs"]["test"]
+
         try:
             with open(results_path, "r") as f:
                 block_b = json.load(f)
         except FileNotFoundError:
             block_b = {
                 "block": "B",
-                "evaluation_split": ["MVI_20062", "MVI_20063"],
+                "evaluation_split": _test_seqs,
                 "selected_detector": "yolov8n",
                 "trackers": [],
             }
@@ -196,6 +262,82 @@ class PipelineController:
 
         return sorted(set.intersection(*seq_sets))
 
+    def _generate_missing_raw_trajectories(
+        self, missing_seqs, seq_split_map, trackers, day7_layout
+    ):
+        """
+        Generate raw trajectory JSONs for manifest sequences that are absent
+        from logs/block_b/trajectories/.
+
+        Called by run_block_b_analysis() as a repair step so that Day 9
+        post-processing covers all 10 split sequences, not just the 2 test clips.
+        Detection caches must exist for each sequence under detections_cache/.
+        GT annotations must be present for metrics; trajectories are written
+        before the metrics call, so the JSON is safe even if evaluation fails.
+        """
+        import yaml
+
+        from src.block_b_sort_runner import run_sort_on_sequence, save_trajectories
+        from src.tracker_bytetrack import run_bytetrack_on_sequence
+        from src.tracker_deepsort import build_reid_model, run_deepsort_on_sequence
+
+        with open("configs/config_blockB.yaml", "r") as f:
+            cfg_b = yaml.safe_load(f)
+
+        gt_root = "data/ua_detrac/annotations"
+
+        print(
+            f"\n[Day 9 Repair] Generating raw trajectories for "
+            f"{len(missing_seqs)} sequences: {missing_seqs}"
+        )
+
+        # Build ReID model once — reused across all DeepSORT sequences
+        reid_model, reid_device = None, None
+        if "deepsort" in trackers:
+            reid_model, reid_device = build_reid_model()
+
+        for seq_id in missing_seqs:
+            split = seq_split_map.get(seq_id, "test")
+            print(f"\n  [{seq_id}]  split={split}")
+
+            if "sort" in trackers:
+                try:
+                    raw_traj, warmup_b, meta, _ = run_sort_on_sequence(
+                        seq_id, split=split
+                    )
+                    save_trajectories(seq_id, raw_traj, warmup_b, meta)
+                    print(f"    SORT      → saved")
+                except Exception as exc:
+                    print(f"    SORT      ERROR: {exc}")
+
+            if "deepsort" in trackers:
+                try:
+                    run_deepsort_on_sequence(
+                        seq_id,
+                        split,
+                        cfg_b,
+                        reid_model=reid_model,
+                        reid_device=reid_device,
+                        gt_root=gt_root,
+                        day7_layout=day7_layout,
+                    )
+                    print(f"    DeepSORT  → saved")
+                except Exception as exc:
+                    print(f"    DeepSORT  ERROR: {exc}")
+
+            if "bytetrack" in trackers:
+                try:
+                    run_bytetrack_on_sequence(
+                        seq_id,
+                        split,
+                        cfg_b,
+                        gt_root=gt_root,
+                        day7_layout=day7_layout,
+                    )
+                    print(f"    ByteTrack → saved")
+                except Exception as exc:
+                    print(f"    ByteTrack ERROR: {exc}")
+
     def _write_block_b_csv_exports(self):
         """
         Optional Day 9 CSV recovery export.
@@ -295,6 +437,23 @@ class PipelineController:
 
         # --- Step 2: discover which sequences can actually be processed ---
         seqs_available = self._discover_available_raw_sequences(trackers)
+
+        # Build a split map so the repair step uses the correct detection cache
+        seq_split_map = (
+            {s: "train" for s in train_seqs}
+            | {s: "val"   for s in val_seqs}
+            | {s: "test"  for s in test_seqs}
+        )
+
+        # Repair: generate raw trajectories for manifest sequences that are missing
+        missing_seqs = [s for s in manifest_all_seqs if s not in seqs_available]
+        if missing_seqs:
+            self._generate_missing_raw_trajectories(
+                missing_seqs, seq_split_map, trackers, day7_layout
+            )
+            # Re-discover now that the repair has run
+            seqs_available = self._discover_available_raw_sequences(trackers)
+
         seqs_for_day9 = [s for s in manifest_all_seqs if s in seqs_available]
 
         print("\nManifest sequences:", manifest_all_seqs)
@@ -444,7 +603,7 @@ class PipelineController:
             )
 
         lines.append(
-            "\n*(Values summed across MVI_20062 and MVI_20063)*\n\n"
+            f"\n*(Values summed across {', '.join(test_seqs)} — test split)*\n\n"
             "Fragment filter: `min_track_length=15` (Fix F11).\n"
             "Interpolation: `max_interp_gap=3 frames` (Fix F22). "
             "Gaps >3 frames: track split. No ghost interpolation.\n"
