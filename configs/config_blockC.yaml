@@ -1,18 +1,62 @@
-detector: yolov8n
-tracker: sort
+# config_blockC.yaml — Block C Feature Extraction Configuration
+# Populated: Day 10 (F1 + F2). F3 added Day 11. Scaler added Day 11.
+
+# ── Upstream frozen selections ──────────────────────────────────────────────
+detector: yolov8n                          # frozen from Block A (block_a_results.csv)
+tracker: sort                              # frozen from Block B (block_b_results.json)
+
+# ── Trajectory source (layout-aware — detect variant at runtime) ─────────────
 trajectory_base: logs/block_b/
 trajectory_suffix: _final.json
 trajectory_stage: final
-warmup_frames: 10
-seed: 42
+
+# ── Warm-up stripping ───────────────────────────────────────────────────────
+warmup_frames_formula: "max(10, int(0.4 * fps))"
 metadata_source: logs/metadata.json
-split_seqs_key: split_seqs
-fps_source: metadata.json
+
+# ── ROI Policy (Fix F17) ────────────────────────────────────────────────────
+roi_policy: full_frame
+# Limitation: full-frame ROI includes roadside stationary vehicles.
+# Pixel-based ROI requires camera calibration outside this project's scope.
+
+# ── F1: Density/Flow Features ───────────────────────────────────────────────
+f1:
+  vehicle_count: true
+  roi_occupancy: true
+  roi_occupancy_method: relative
+
+# ── F2: Speed/Velocity Features (Fix F07) ───────────────────────────────────
+f2:
+  vel_px_sec: true
+  speed_window_sec: 0.2
+  smoothed_column: vel_px_sec_smooth
+  keep_raw: true
+
+# ── F3: Interaction Features — Day 11 ───────────────────────────────────────
+f3:
+  inter_vehicle_dist_norm: false
+  prox_window_sec: 2.0
+  dwell_time_sec: false
+  proximity_flag: false
+
+# ── Feature schema ───────────────────────────────────────────────────────────
+feature_schema: configs/feature_schema.json
 schema_version: v1
-feature_schema: configs/trajectory_schema.json
-feature_trajectory_type: _final.json
-_note_1: "Full population deferred to Day 10 \u2014 Block C feature extraction"
-_note_2: "Tracker frozen here \u2014 do not change after Day 9"
-_note_3: Fragment filter (min=15) and interpolation (max_gap=3) applied
-_note_4: "Detector frozen: YOLOv8n \u2014 source: logs/block_a/block_a_results.csv"
-_note_5: "fps_source=metadata.json \u2014 never hardcode FPS in Block C"
+
+# ── Output paths ─────────────────────────────────────────────────────────────
+features_dir: logs/block_c/
+features_suffix: _features.csv
+
+# ── Scaler (populated Day 11) ────────────────────────────────────────────────
+scaler:
+  type: minmax
+  fit_split: train
+  fit_label: normal
+  path: models/minmax_scaler.pkl
+  clip_after_transform: true
+
+# ── Interpolated frame handling ──────────────────────────────────────────────
+exclude_interpolated_from_scaler_fit: true
+
+# ── Seed ─────────────────────────────────────────────────────────────────────
+seed: 42
