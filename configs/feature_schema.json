@@ -1,6 +1,6 @@
 {
   "schema_version": "v1.1",
-  "schema_evolution_note": "v1 = Day 10 (F1+F2). v1.1 = Day 11 (F3 added: inter_vehicle_dist_norm, dwell_time_sec, proximity_flag, proximity_count_rolling). Any further change must bump version and be noted in thesis §3.4.3.",
+  "schema_evolution_note": "v1=Day10(F1+F2). v1.1=Day11(F3 added: inter_vehicle_dist_norm, dwell_time_sec, proximity_flag, proximity_count_rolling). Bump version for any future change.",
   "description": "CST3990 Block C features.csv column schema. F1+F2 defined Day 10. F3 added Day 11.",
   "day_defined": 10,
   "day_11_additions": [
@@ -10,29 +10,121 @@
     "proximity_count_rolling"
   ],
   "columns": [
-    {"name": "seq_id",              "type": "str",   "description": "Sequence identifier (e.g. MVI_20011)"},
-    {"name": "frame_idx",           "type": "int",   "description": "0-based frame index after warm-up stripping"},
-    {"name": "track_id",            "type": "int",   "description": "Unique track ID from _final.json"},
-    {"name": "cx",                  "type": "float", "description": "Centroid x in 640x640 image space"},
-    {"name": "cy",                  "type": "float", "description": "Centroid y in 640x640 image space"},
-    {"name": "bbox_x1",             "type": "float", "description": "Bounding box x1 in 640x640 space"},
-    {"name": "bbox_y1",             "type": "float", "description": "Bounding box y1 in 640x640 space"},
-    {"name": "bbox_x2",             "type": "float", "description": "Bounding box x2 in 640x640 space"},
-    {"name": "bbox_y2",             "type": "float", "description": "Bounding box y2 in 640x640 space"},
-    {"name": "conf",                "type": "float", "description": "Detection confidence. -1.0 = interpolated frame sentinel (Fix F22)"},
-    {"name": "is_interpolated",     "type": "bool",  "description": "True if frame was synthetically inserted by Day 9 post_processor"},
-    {"name": "velocity_norm",       "type": "float", "description": "Raw frame-to-frame Euclidean displacement from _final.json (640x640 space)"},
-    {"name": "vel_px_sec",          "type": "float", "description": "velocity_norm * fps - pixels/second proxy (Fix F07)"},
-    {"name": "vel_px_sec_smooth",   "type": "float", "description": "Rolling mean of vel_px_sec over speed_window=int(0.2*fps) frames per track"},
-    {"name": "vehicle_count",       "type": "int",   "description": "F1.1: unique active track_ids per frame"},
-    {"name": "roi_occupancy",       "type": "float", "description": "F1.2: vehicle_count / max_vehicle_count per clip. Full-frame ROI proxy (Fix F17)"},
-    {"name": "track_length_real",   "type": "int",   "description": "Genuine detection count for this track - computed from full pre-strip trajectory entries using interpolated==False (not from file header)"},
-    {"name": "inter_vehicle_dist_norm", "type": "float", "description": "F3.1: minimum normalised pairwise distance to other tracks in same frame. Image-space proxy normalised by frame diagonal (640*sqrt(2)). Fix F28 perspective disclaimer. NaN when only one track present in frame."},
-    {"name": "dwell_time_sec",      "type": "float", "description": "F3.2: cumulative dwell since first post-warmup appearance. Formula: (frame_idx - track_first_frame_idx_post_warmup) / fps. Definition locked Day 10. Not instantaneous spatial dwell."},
-    {"name": "proximity_flag",      "type": "bool",  "description": "F3.3: True when inter_vehicle_dist_norm < proximity_threshold_dist (config_blockC.yaml f3.proximity_threshold_dist = 0.15). False when inter_vehicle_dist_norm is NaN."},
-    {"name": "proximity_count_rolling", "type": "float", "description": "F3: rolling sum of proximity_flag over prox_window = int(2.0*fps) frames per track. Fix F07: window in seconds converted at runtime. At 25 FPS = 50 frames (~2.0s)."},
-    {"name": "split",               "type": "str",   "description": "train/val/test from logs/metadata.json split_seqs"},
-    {"name": "tracker",             "type": "str",   "description": "Selected tracker name from config_blockC.yaml"}
+    {
+      "name": "seq_id",
+      "type": "str",
+      "description": "Sequence identifier (e.g. MVI_20011)"
+    },
+    {
+      "name": "frame_idx",
+      "type": "int",
+      "description": "0-based frame index after warm-up stripping"
+    },
+    {
+      "name": "track_id",
+      "type": "int",
+      "description": "Unique track ID from _final.json"
+    },
+    {
+      "name": "cx",
+      "type": "float",
+      "description": "Centroid x in 640x640 image space"
+    },
+    {
+      "name": "cy",
+      "type": "float",
+      "description": "Centroid y in 640x640 image space"
+    },
+    {
+      "name": "bbox_x1",
+      "type": "float",
+      "description": "Bounding box x1 in 640x640 space"
+    },
+    {
+      "name": "bbox_y1",
+      "type": "float",
+      "description": "Bounding box y1 in 640x640 space"
+    },
+    {
+      "name": "bbox_x2",
+      "type": "float",
+      "description": "Bounding box x2 in 640x640 space"
+    },
+    {
+      "name": "bbox_y2",
+      "type": "float",
+      "description": "Bounding box y2 in 640x640 space"
+    },
+    {
+      "name": "conf",
+      "type": "float",
+      "description": "Detection confidence. -1.0 = interpolated frame sentinel (Fix F22)"
+    },
+    {
+      "name": "is_interpolated",
+      "type": "bool",
+      "description": "True if frame was synthetically inserted by Day 9 post_processor"
+    },
+    {
+      "name": "velocity_norm",
+      "type": "float",
+      "description": "Raw frame-to-frame Euclidean displacement from _final.json (640x640 space)"
+    },
+    {
+      "name": "vel_px_sec",
+      "type": "float",
+      "description": "velocity_norm * fps - pixels/second proxy (Fix F07)"
+    },
+    {
+      "name": "vel_px_sec_smooth",
+      "type": "float",
+      "description": "Rolling mean of vel_px_sec over speed_window=int(0.2*fps) frames per track"
+    },
+    {
+      "name": "vehicle_count",
+      "type": "int",
+      "description": "F1.1: unique active track_ids per frame"
+    },
+    {
+      "name": "roi_occupancy",
+      "type": "float",
+      "description": "F1.2: vehicle_count / max_vehicle_count per clip. Full-frame ROI proxy (Fix F17)"
+    },
+    {
+      "name": "track_length_real",
+      "type": "int",
+      "description": "Genuine detection count for this track - computed from full pre-strip trajectory entries using interpolated==False (not from file header)"
+    },
+    {
+      "name": "inter_vehicle_dist_norm",
+      "type": "float",
+      "description": "F3.1: minimum normalised pairwise distance to other tracks in same frame. Image-space proxy normalised by frame diagonal (640*sqrt(2)). Fix F28 perspective disclaimer. NaN when only one track present in frame."
+    },
+    {
+      "name": "dwell_time_sec",
+      "type": "float",
+      "description": "F3.2: cumulative dwell since first post-warmup appearance. Formula: (frame_idx - track_first_frame_idx_post_warmup) / fps. Definition locked Day 10. Not instantaneous spatial dwell."
+    },
+    {
+      "name": "proximity_flag",
+      "type": "bool",
+      "description": "F3.3: True when inter_vehicle_dist_norm < proximity_threshold_dist (config_blockC.yaml f3.proximity_threshold_dist = 0.15). False when inter_vehicle_dist_norm is NaN."
+    },
+    {
+      "name": "proximity_count_rolling",
+      "type": "float",
+      "description": "F3: rolling sum of proximity_flag over prox_window = int(2.0*fps) frames per track. Fix F07: window in seconds converted at runtime. At 25 FPS = 50 frames (~2.0s)."
+    },
+    {
+      "name": "split",
+      "type": "str",
+      "description": "train/val/test from logs/metadata.json split_seqs"
+    },
+    {
+      "name": "tracker",
+      "type": "str",
+      "description": "Selected tracker name from config_blockC.yaml"
+    }
   ],
   "f3_columns_completed_day11": [
     "inter_vehicle_dist_norm",

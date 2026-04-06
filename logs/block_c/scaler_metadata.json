@@ -1,0 +1,56 @@
+{
+  "fit_split": "train",
+  "exclude_interpolated": true,
+  "n_rows_fitted": 60428,
+  "n_features": 7,
+  "feature_columns": [
+    "vel_px_sec",
+    "vel_px_sec_smooth",
+    "vehicle_count",
+    "roi_occupancy",
+    "inter_vehicle_dist_norm",
+    "dwell_time_sec",
+    "proximity_count_rolling"
+  ],
+  "fitted_ranges": {
+    "vel_px_sec": {
+      "min": 0.001243713844371,
+      "max": 62.501709703308514
+    },
+    "vel_px_sec_smooth": {
+      "min": 0.0113880995311916,
+      "max": 263.4150214883697
+    },
+    "vehicle_count": {
+      "min": 2.0,
+      "max": 24.0
+    },
+    "roi_occupancy": {
+      "min": 0.1333333333333333,
+      "max": 1.0
+    },
+    "inter_vehicle_dist_norm": {
+      "min": 0.0051144882262708,
+      "max": 0.5393746610689848
+    },
+    "dwell_time_sec": {
+      "min": 0.0,
+      "max": 35.76
+    },
+    "proximity_count_rolling": {
+      "min": 0.0,
+      "max": 50.0
+    }
+  },
+  "domain_shift_pct": {
+    "train": 0.0158,
+    "val": 0.0238,
+    "test": 0.0695
+  },
+  "scaler_path": "models/minmax_scaler.pkl",
+  "fix_references": [
+    "F13",
+    "F18"
+  ],
+  "seed": 42
+}
