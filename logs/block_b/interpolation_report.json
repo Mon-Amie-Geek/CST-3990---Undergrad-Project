@@ -1,10 +1,42 @@
 {
   "max_interp_gap": 3,
   "processed_sequences": [
+    "MVI_20011",
+    "MVI_20012",
+    "MVI_20032",
+    "MVI_20034",
+    "MVI_20035",
+    "MVI_20051",
+    "MVI_20052",
+    "MVI_20061",
     "MVI_20062",
     "MVI_20063"
   ],
   "sort": {
+    "MVI_20011": {
+      "frames_interpolated": 112
+    },
+    "MVI_20012": {
+      "frames_interpolated": 108
+    },
+    "MVI_20032": {
+      "frames_interpolated": 32
+    },
+    "MVI_20034": {
+      "frames_interpolated": 216
+    },
+    "MVI_20035": {
+      "frames_interpolated": 138
+    },
+    "MVI_20051": {
+      "frames_interpolated": 93
+    },
+    "MVI_20052": {
+      "frames_interpolated": 106
+    },
+    "MVI_20061": {
+      "frames_interpolated": 201
+    },
     "MVI_20062": {
       "frames_interpolated": 93
     },
@@ -13,6 +45,30 @@
     }
   },
   "deepsort": {
+    "MVI_20011": {
+      "frames_interpolated": 56
+    },
+    "MVI_20012": {
+      "frames_interpolated": 66
+    },
+    "MVI_20032": {
+      "frames_interpolated": 13
+    },
+    "MVI_20034": {
+      "frames_interpolated": 68
+    },
+    "MVI_20035": {
+      "frames_interpolated": 96
+    },
+    "MVI_20051": {
+      "frames_interpolated": 62
+    },
+    "MVI_20052": {
+      "frames_interpolated": 43
+    },
+    "MVI_20061": {
+      "frames_interpolated": 56
+    },
     "MVI_20062": {
       "frames_interpolated": 25
     },
@@ -21,6 +77,30 @@
     }
   },
   "bytetrack": {
+    "MVI_20011": {
+      "frames_interpolated": 61
+    },
+    "MVI_20012": {
+      "frames_interpolated": 61
+    },
+    "MVI_20032": {
+      "frames_interpolated": 13
+    },
+    "MVI_20034": {
+      "frames_interpolated": 106
+    },
+    "MVI_20035": {
+      "frames_interpolated": 71
+    },
+    "MVI_20051": {
+      "frames_interpolated": 88
+    },
+    "MVI_20052": {
+      "frames_interpolated": 31
+    },
+    "MVI_20061": {
+      "frames_interpolated": 67
+    },
     "MVI_20062": {
       "frames_interpolated": 38
     },
