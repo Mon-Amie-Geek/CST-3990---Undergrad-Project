@@ -32,30 +32,41 @@ f2:
   smoothed_column: vel_px_sec_smooth
   keep_raw: true
 
-# F3: Interaction Features — Day 11
+# ── F3: Interaction Features (Fix F07, F28) — Day 11 ─────────────────────────
+# prox_window_sec: TEMPORAL rolling window in seconds (Fix F07).
+#   Converted to frames at runtime: prox_window = int(2.0 * fps).
+#   At 25 FPS = 50 frames (~2.0 s). NOT a spatial threshold.
+# proximity_threshold_dist: SPATIAL normalised-distance threshold.
+#   Distinct from prox_window_sec — this controls proximity_flag, not window size.
+#   0.15 = 15% of frame diagonal (image-space proxy, not calibrated metres).
 f3:
-  inter_vehicle_dist_norm: false
-  prox_window_sec: 2.0
-  dwell_time_sec: false
-  proximity_flag: false
+  inter_vehicle_dist_norm: true
+  prox_window_sec: 2.0                  # temporal rolling window in seconds (Fix F07)
+  proximity_threshold_dist: 0.15        # spatial normalised distance threshold for proximity_flag
+  dwell_time_sec: true
+  proximity_flag: true
+  proximity_count_rolling: true         # rolling sum of proximity_flag over prox_window
 
-# Feature schema 
+# Feature schema
 feature_schema: configs/feature_schema.json
-schema_version: v1
+schema_version: v1.1
 
 # Output paths
 features_dir: logs/block_c/
 features_suffix: _features.csv
 
-# Scaler (populated Day 11)
+# ── Scaler (Fix F13, Fix F18) — Day 11 ───────────────────────────────────────
 scaler:
   type: minmax
-  fit_split: train
+  fit_split: train                       # ONLY train-split sequences (Fix F13)
   fit_label: normal
-  path: models/minmax_scaler.pkl
-  clip_after_transform: true
+  path: models/minmax_scaler.pkl         # written Day 11
+  clip_after_transform: true             # clip to [0,1] after transform (Fix F18)
+  min_valid_fit_rows: 100                # fail fast if too few valid train rows after NaN exclusion
+  scaled_suffix: _features_scaled.csv   # output file suffix for scaled CSVs
+  metadata_path: logs/block_c/scaler_metadata.json
 
-# Interpolated frame handling 
+# Interpolated frame handling
 exclude_interpolated_from_scaler_fit: true
 
 # Seed

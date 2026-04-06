@@ -49,3 +49,11 @@ torchreid @ git+https://github.com/KaiyangZhou/deep-person-reid.git
 #   pandas >= 2.0   — already pinned above as pandas==2.2.2  (satisfies >=2.0)
 #   pyyaml >= 6.0   — already pinned above as PyYAML==6.0.1  (satisfies >=6.0)
 # No new packages needed; minimum version constraints documented here for audit trail.
+
+# --- Day 11 additions ---
+# Block C Day 11 (F3 features + MinMaxScaler) requires:
+#   scikit-learn>=1.2 — already pinned as scikit-learn==1.5.0  (satisfies >=1.2)
+#   joblib>=1.2       — already pinned as joblib==1.4.2         (satisfies >=1.2)
+#   scipy>=1.9.0      — already pinned as scipy==1.13.1         (satisfies >=1.9.0)
+#   numpy>=1.24       — already pinned as numpy==1.26.4         (satisfies >=1.24)
+# No new packages needed; all constraints satisfied by existing pins above.

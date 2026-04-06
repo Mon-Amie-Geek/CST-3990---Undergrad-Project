@@ -6,11 +6,14 @@ All blocks are wired through this controller to keep modules independent.
 
 import glob
 import json
+import logging
 import os
 
 import yaml
 
 from src.seed_control import set_all_seeds
+
+logger = logging.getLogger(__name__)
 
 
 class PipelineController:
@@ -661,6 +664,89 @@ class PipelineController:
             completed += 1
 
         print(f"[Block C] Done. {completed}/{len(all_seqs)} clips processed.")
+
+    def run_block_c_day11(self):
+        """
+        Block C Day 11: F3 feature augmentation + MinMaxScaler fitting +
+        scaled CSV writing.
+
+        Prerequisites:
+          - Day 10 features.csv files must exist in logs/block_c/ for all 10
+            sequences.
+          - config_blockC.yaml tracker field must already be populated (Day 10).
+
+        Steps:
+          1. F3 augmentation — load-augment-rewrite all 10 *_features.csv files
+          2. Fit MinMaxScaler on train-split non-interpolated rows (Fix F13)
+          3. Transform all splits and write *_features_scaled.csv (Fix F18)
+        """
+        from src.feature_extractor import (
+            augment_features_with_f3,
+            fit_and_save_scaler,
+            apply_scaler_transform,
+        )
+        import pandas as pd
+
+        with open("configs/config_blockC.yaml", "r") as f:
+            cfg = yaml.safe_load(f)
+        meta = json.load(open("logs/metadata.json"))
+
+        # Assertion: tracker must already be populated from Day 10
+        assert cfg.get("tracker") not in (None, "", "<SELECTED_TRACKER_FROM_DAY9>"), (
+            "config_blockC.yaml tracker is not populated. "
+            "Confirm Day 10 completed successfully."
+        )
+
+        all_seqs = (
+            meta["split_seqs"]["train"]
+            + meta["split_seqs"]["val"]
+            + meta["split_seqs"]["test"]
+        )
+        assert len(all_seqs) == 10, f"Expected 10 sequences, got {len(all_seqs)}"
+        assert len(set(all_seqs)) == 10, "Duplicate sequence IDs found across splits!"
+
+        # Step 1: F3 augmentation
+        print("[Block C Day 11] Step 1: F3 augmentation for all sequences.")
+        for seq_id in all_seqs:
+            augment_features_with_f3(seq_id, meta, cfg)
+            print(f"  [F3] {seq_id} — done")
+
+        # Step 2: Fit scaler on train split
+        print("[Block C Day 11] Step 2: Fitting MinMaxScaler on train split (Fix F13).")
+        scaler = fit_and_save_scaler(cfg, meta)
+
+        # Step 3: Transform all splits and save scaled CSVs
+        print("[Block C Day 11] Step 3: Applying scaler transform + writing scaled CSVs.")
+        features_dir = cfg.get("features_dir", "logs/block_c/")
+        scaled_suffix = cfg.get("scaler", {}).get("scaled_suffix", "_features_scaled.csv")
+
+        for split_name in ["train", "val", "test"]:
+            for seq_id in meta["split_seqs"][split_name]:
+                csv_path = os.path.join(features_dir, f"{seq_id}_features.csv")
+                if not os.path.exists(csv_path):
+                    logger.warning(
+                        f"[{seq_id}] features.csv missing — skipping transform."
+                    )
+                    continue
+                df = pd.read_csv(csv_path)
+                df_scaled = apply_scaler_transform(
+                    df, scaler, cfg, label=f"{split_name}/{seq_id}"
+                )
+                out_path = os.path.join(features_dir, f"{seq_id}{scaled_suffix}")
+                df_scaled.to_csv(out_path, index=False)
+                assert os.path.exists(out_path), (
+                    f"[{seq_id}] scaled CSV not written at {out_path}"
+                )
+                # Verify raw file was NOT overwritten
+                assert os.path.exists(csv_path), (
+                    f"[{seq_id}] Raw features.csv missing after scaling step!"
+                )
+                print(f"  [scaled] {seq_id} — {out_path}")
+
+        print(
+            f"[Block C Day 11] Complete. "
+            f"F3 + scaler fit + scaled CSVs for {len(all_seqs)} sequences."
+        )
 
     def run_block_d(self):
         """Block D - Anomaly detection."""
