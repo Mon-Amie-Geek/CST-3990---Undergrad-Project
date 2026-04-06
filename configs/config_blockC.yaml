@@ -1,53 +1,53 @@
 # config_blockC.yaml — Block C Feature Extraction Configuration
 # Populated: Day 10 (F1 + F2). F3 added Day 11. Scaler added Day 11.
 
-# ── Upstream frozen selections ──────────────────────────────────────────────
+#  Upstream frozen selections
 detector: yolov8n                          # frozen from Block A (block_a_results.csv)
 tracker: sort                              # frozen from Block B (block_b_results.json)
 
-# ── Trajectory source (layout-aware — detect variant at runtime) ─────────────
+# Trajectory source (layout-aware — detect variant at runtime)
 trajectory_base: logs/block_b/
 trajectory_suffix: _final.json
 trajectory_stage: final
 
-# ── Warm-up stripping ───────────────────────────────────────────────────────
+# Warm-up stripping 
 warmup_frames_formula: "max(10, int(0.4 * fps))"
 metadata_source: logs/metadata.json
 
-# ── ROI Policy (Fix F17) ────────────────────────────────────────────────────
+# ROI Policy 
 roi_policy: full_frame
 # Limitation: full-frame ROI includes roadside stationary vehicles.
 # Pixel-based ROI requires camera calibration outside this project's scope.
 
-# ── F1: Density/Flow Features ───────────────────────────────────────────────
+# F1: Density/Flow Features
 f1:
   vehicle_count: true
   roi_occupancy: true
   roi_occupancy_method: relative
 
-# ── F2: Speed/Velocity Features (Fix F07) ───────────────────────────────────
+# F2: Speed/Velocity Features
 f2:
   vel_px_sec: true
   speed_window_sec: 0.2
   smoothed_column: vel_px_sec_smooth
   keep_raw: true
 
-# ── F3: Interaction Features — Day 11 ───────────────────────────────────────
+# F3: Interaction Features — Day 11
 f3:
   inter_vehicle_dist_norm: false
   prox_window_sec: 2.0
   dwell_time_sec: false
   proximity_flag: false
 
-# ── Feature schema ───────────────────────────────────────────────────────────
+# Feature schema 
 feature_schema: configs/feature_schema.json
 schema_version: v1
 
-# ── Output paths ─────────────────────────────────────────────────────────────
+# Output paths
 features_dir: logs/block_c/
 features_suffix: _features.csv
 
-# ── Scaler (populated Day 11) ────────────────────────────────────────────────
+# Scaler (populated Day 11)
 scaler:
   type: minmax
   fit_split: train
@@ -55,8 +55,8 @@ scaler:
   path: models/minmax_scaler.pkl
   clip_after_transform: true
 
-# ── Interpolated frame handling ──────────────────────────────────────────────
+# Interpolated frame handling 
 exclude_interpolated_from_scaler_fit: true
 
-# ── Seed ─────────────────────────────────────────────────────────────────────
+# Seed
 seed: 42
