@@ -1,0 +1,5 @@
+feature_set,feature_columns,n_train_rows,n_val_rows,n_val_anomaly_proxy,best_nu,auroc,silhouette,status
+F1_only,"['vehicle_count', 'roi_occupancy']",61221,8990,142,0.05,0.4724143914117618,-0.0021992247878561294,ok
+F2_only,"['vel_px_sec', 'vel_px_sec_smooth']",61221,8990,142,0.01,0.993488621603036,0.9430989171209456,ok
+F2_F3,"['vel_px_sec', 'vel_px_sec_smooth', 'inter_vehicle_dist_norm', 'dwell_time_sec', 'proximity_count_rolling']",61221,8990,142,0.01,0.6409891309884623,0.4709855028471343,ok
+all_features,"['vehicle_count', 'roi_occupancy', 'vel_px_sec', 'vel_px_sec_smooth', 'inter_vehicle_dist_norm', 'dwell_time_sec', 'proximity_count_rolling']",61221,8990,142,0.01,0.7311917390418461,0.36766600051423765,ok

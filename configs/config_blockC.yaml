@@ -37,25 +37,7 @@ scaler:
   metadata_path: logs/block_c/scaler_metadata.json
 exclude_interpolated_from_scaler_fit: true
 seed: 42
-
-# ── Block C Day 12 — Feature Comparison Result ───────────────────────────────
-# Populated programmatically by run_auroc_comparison() after AUROC evaluation.
-# best_feature_set is locked here for Block D to read.
-best_feature_set: null
+best_feature_set: F2_only
 ocsvm_best_model_path: logs/block_c/ocsvm_trained_best.pkl
-block_c_completed: false
+block_c_completed: true
 block_c_results_table: logs/block_c/block_c_results_table.csv
-
-# ── Fix references completed (Day 12) ────────────────────────────────────────
-# F02: no GridSearchCV for OC-SVM — manual nu sweep over {0.01,0.02,0.05,0.10,0.15}
-# F04: no pseudo-anomaly circular logic — 3-sigma train-stats threshold for
-#      y_val_binary; y_val_binary built ONCE from full split DataFrames before
-#      the feature-set evaluation loop.
-
-# ── F3 passthrough note ───────────────────────────────────────────────────────
-# proximity_flag is a boolean passthrough column in _features_scaled.csv
-# (not MinMax-scaled). It IS a direct F3 model input and is included in F2_F3
-# and all_features. Day 12 must not call scaler.transform() on it — read it
-# directly from the scaled CSV. F3 feature completeness (all four F3 columns)
-# validated at runtime by _validate_feature_set_columns(). F3-containing sets
-# may evaluate on fewer val rows due to Day 11 NaN semantics — expected.

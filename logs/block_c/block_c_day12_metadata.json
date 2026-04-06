@@ -1,0 +1,60 @@
+{
+  "day": 12,
+  "student": "MANJOO Ameera Najla",
+  "student_id": "M01014463",
+  "timestamp": "2026-04-06T22:51:57.926798Z",
+  "seed": 42,
+  "fix_references": [
+    "F02",
+    "F04"
+  ],
+  "scaler_loaded_from": "models/minmax_scaler.pkl",
+  "scaler_fitted_day": 11,
+  "scaler_refitted_today": false,
+  "scaler_purpose_day12": "Loaded for prerequisite/provenance validation only. No transform calls made.",
+  "feature_sets_evaluated": [
+    "F1_only",
+    "F2_only",
+    "F2_F3",
+    "all_features"
+  ],
+  "best_feature_set": "F2_only",
+  "best_auroc": 0.993488621603036,
+  "best_nu": 0.01,
+  "nu_sweep_candidates": [
+    0.01,
+    0.02,
+    0.05,
+    0.1,
+    0.15
+  ],
+  "nu_selection_rule": "manual nu sweep on 80/20 train-only hold-out; choose the nu with the lowest FPR among those < 0.05, else minimum-FPR fallback",
+  "nu_holdout_fraction": 0.2,
+  "nu_target_fpr": 0.05,
+  "best_nu_fallback_used": false,
+  "ocsvm_model_path": "logs/block_c/ocsvm_trained_best.pkl",
+  "val_sequences": [
+    "MVI_20061"
+  ],
+  "train_sequences": [
+    "MVI_20011",
+    "MVI_20012",
+    "MVI_20032",
+    "MVI_20034",
+    "MVI_20035",
+    "MVI_20051",
+    "MVI_20052"
+  ],
+  "y_val_binary_method": "3-sigma train-statistics threshold (Fix F04 \u2014 anti-circular)",
+  "y_val_binary_note": "UA-DETRAC val sequences contain normal traffic only \u2014 no labelled anomaly ground truth. y_val_binary is a statistical proxy: rows where vel_px_sec or inter_vehicle_dist_norm fall beyond 3 train-split standard deviations are treated as 'anomaly candidates'. y_val_binary is constructed ONCE from the full Day 11 split DataFrames (df_train_full, df_val_full) before the feature-set loop \u2014 the label definition is identical for F1_only, F2_only, F2_F3, and all_features. Per-feature-set valid_idx subsetting happens only after label construction. AUROC therefore measures feature separability of statistical outliers within a normal distribution, NOT true anomaly detection performance. This is the correct interpretation of Fix F04 \u2014 it avoids the circular pseudo-anomaly construction where speed defines the anomaly and then speed is evaluated. Block D (AI City, stall/crash GT) provides true anomaly detection evaluation.",
+  "y_val_binary_constructed_once": true,
+  "day11_scaled_csv_semantics": "Rows with any NaN in scaler-fit columns were written with NaN for the full scaler-fit block in *_features_scaled.csv. Day 12 preserves this exactly and does not impute undefined interaction values.",
+  "day11_min_valid_fit_rows_guard": "Day 12 reads min_valid_fit_rows from config_blockC.yaml scaler section and warns (does not crash) if post-dropna row count falls below this threshold for any feature set.",
+  "f3_row_loss_note": "Feature sets containing F3 (F2_F3, all_features) may evaluate on fewer rows because undefined interaction features were intentionally preserved as NaN in Day 11 scaled outputs. This is expected and not a preprocessing error.",
+  "proximity_flag_in_day12_model": false,
+  "proximity_flag_note": "proximity_flag is a boolean threshold-derived helper written by Day 11 as a passthrough column in _features_scaled.csv. It is retained in the CSV schema for provenance, but is NOT a Day 12 OC-SVM model input. F3 is represented by three continuous/temporal behavioural indicators: inter_vehicle_dist_norm, dwell_time_sec, proximity_count_rolling. This preserves thesis-aligned methodological clarity: OC-SVM compares continuous feature families, not threshold-derived binary signals.",
+  "feature_set_column_validation": "FEATURE_SET_DEFINITIONS column names were validated against actual _features_scaled.csv columns at runtime via _validate_feature_set_columns() before the AUROC loop. Validation requires only the continuous/temporal OC-SVM model-input columns. proximity_flag is present in Day 11 CSV outputs but is excluded from all Day 12 feature sets by design.",
+  "block_c_results_table": "logs/block_c/block_c_results_table.csv",
+  "config_blockC_updated": true,
+  "interpretation_note": "y_val_binary is derived from train-split velocity and interaction-distance statistics. Feature sets lacking those variables (especially F1_only) may be relatively disadvantaged. Day 12 compares practical separability under the selected proxy label, not a universal ranking of all possible anomaly-feature families."
+}
