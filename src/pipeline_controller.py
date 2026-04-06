@@ -122,93 +122,121 @@ class PipelineController:
 
     def run_block_b_analysis(self):
         """
-        Day 9: Post-processing, error propagation, and tracker selection.
-        Fully implemented — not a stub.
+    Day 9: Post-processing, error propagation, and tracker selection.
+    Fully implemented — not a stub.
 
-        Steps:
-          1. Detect DAY7_LAYOUT + run pre-flight assertions
-          2. Fragment filter + track interpolation (run_post_processing)
-          3. Save fragment_filter_report.json and interpolation_report.json
-          4. Error propagation correlation (run_error_propagation_analysis)
-          5. Tracker selection (select_tracker → config_blockC.yaml)
-          6. Finalise block_b_results_table.md
-        """
-        import os
-        from src.post_processor import run_post_processing
-        from src.error_propagation import (
-            run_error_propagation_analysis,
-            preflight_checks,
+    Split policy:
+      - Post-processing (fragment filter + interpolation) must run on ALL frozen sequences
+        because Block C / Day 10 consumes *_final.json for train + val + test.
+      - Error propagation and tracker comparison remain TEST-SPLIT only.
+      - Tracker selection remains based on Block B evaluation results.
+
+    Steps:
+      1. Detect DAY7_LAYOUT + run pre-flight assertions
+      2. Fragment filter + track interpolation on ALL frozen sequences
+      3. Save fragment_filter_report.json and interpolation_report.json
+      4. Error propagation correlation on TEST split only
+      5. Tracker selection (select_tracker → config_blockC.yaml)
+      6. Finalise block_b_results_table.md
+    """
+    import os
+    from src.post_processor import run_post_processing
+    from src.error_propagation import (
+        run_error_propagation_analysis,
+        preflight_checks,
+    )
+    from src.tracker_selector import select_tracker
+
+    # Load metadata
+    with open("logs/metadata.json") as f:
+        metadata = json.load(f)
+
+    train_seqs = metadata["split_seqs"]["train"]
+    val_seqs   = metadata["split_seqs"]["val"]
+    test_seqs  = metadata["split_seqs"]["test"]
+    all_seqs   = train_seqs + val_seqs + test_seqs
+
+    trackers = ["sort", "deepsort", "bytetrack"]
+
+    # Detect Day 7/8 layout
+    if os.path.exists("logs/block_b/sort/trajectories_MVI_20062.json"):
+        day7_layout = "variant_a"
+    elif os.path.exists("logs/block_b/trajectories/MVI_20062_sort.json"):
+        day7_layout = "variant_b"
+    else:
+        raise FileNotFoundError(
+            "Cannot detect Day 7/8 output layout. Run Days 7-8 first."
         )
-        from src.tracker_selector import select_tracker
+    print(f"Layout detected: {day7_layout}")
 
-        # Load metadata
-        with open("logs/metadata.json") as f:
-            metadata = json.load(f)
-        test_seqs = metadata["split_seqs"]["test"]   # ["MVI_20062", "MVI_20063"]
-        trackers  = ["sort", "deepsort", "bytetrack"]
+    # Step 1: Pre-flight checks
+    # Keep preflight on test split because Block B evaluation itself is test-only.
+    print("\n=== Step 1: Pre-flight Checks ===")
+    schema_entry_fields = preflight_checks(
+        metadata, test_seqs, trackers, day7_layout
+    )
 
-        # Detect Day 7/8 layout
-        if os.path.exists("logs/block_b/sort/trajectories_MVI_20062.json"):
-            day7_layout = "variant_a"
-        elif os.path.exists("logs/block_b/trajectories/MVI_20062_sort.json"):
-            day7_layout = "variant_b"
-        else:
-            raise FileNotFoundError(
-                "Cannot detect Day 7/8 output layout. Run Days 7-8 first."
-            )
-        print(f"Layout detected: {day7_layout}")
+    # Step 2: Fragment filter + interpolation on ALL frozen sequences
+    print("\n=== Step 2: Fragment Filter + Track Interpolation (ALL frozen sequences) ===")
+    fragment_report, interp_report = run_post_processing(
+        trackers=trackers,
+        seqs=all_seqs,
+        day7_layout=day7_layout,
+        schema_entry_fields=schema_entry_fields,
+        min_track_length=15,
+        max_interp_gap=3,
+    )
 
-        # Step 1: Pre-flight checks
-        print("\n=== Step 1: Pre-flight Checks ===")
-        schema_entry_fields = preflight_checks(
-            metadata, test_seqs, trackers, day7_layout
+    # Step 3: Save reports
+    os.makedirs("logs/block_b", exist_ok=True)
+    with open("logs/block_b/fragment_filter_report.json", "w") as f:
+        json.dump(
+            {
+                "min_track_length": 15,
+                "processed_sequences": all_seqs,
+                **fragment_report,
+            },
+            f,
+            indent=2,
         )
-
-        # Step 2: Fragment filter + interpolation
-        print("\n=== Step 2: Fragment Filter + Track Interpolation ===")
-        fragment_report, interp_report = run_post_processing(
-            trackers=trackers,
-            test_seqs=test_seqs,
-            day7_layout=day7_layout,
-            schema_entry_fields=schema_entry_fields,
-            min_track_length=15,
-            max_interp_gap=3,
+    with open("logs/block_b/interpolation_report.json", "w") as f:
+        json.dump(
+            {
+                "max_interp_gap": 3,
+                "processed_sequences": all_seqs,
+                **interp_report,
+            },
+            f,
+            indent=2,
         )
+    print("Reports saved.")
 
-        # Step 3: Save reports
-        os.makedirs("logs/block_b", exist_ok=True)
-        with open("logs/block_b/fragment_filter_report.json", "w") as f:
-            json.dump({"min_track_length": 15, **fragment_report}, f, indent=2)
-        with open("logs/block_b/interpolation_report.json", "w") as f:
-            json.dump({"max_interp_gap": 3, **interp_report}, f, indent=2)
-        print("Reports saved.")
+    # Step 4: Error propagation correlation on TEST split only
+    print("\n=== Step 3: Error Propagation Correlation (TEST split) ===")
+    run_error_propagation_analysis(
+        trackers=trackers,
+        test_seqs=test_seqs,
+        day7_layout=day7_layout,
+        output_path="logs/block_b_error_propagation.json",
+    )
 
-        # Step 4: Error propagation correlation
-        print("\n=== Step 3: Error Propagation Correlation ===")
-        run_error_propagation_analysis(
-            trackers=trackers,
-            test_seqs=test_seqs,
-            day7_layout=day7_layout,
-            output_path="logs/block_b_error_propagation.json",
-        )
+    # Step 5: Tracker selection
+    print("\n=== Step 4: Tracker Selection ===")
+    selected = select_tracker()
+    print(f"SELECTED TRACKER: {selected.upper()}")
 
-        # Step 5: Tracker selection
-        print("\n=== Step 4: Tracker Selection ===")
-        selected = select_tracker()
-        print(f"SELECTED TRACKER: {selected.upper()}")
+    # Step 6: Finalise results table
+    print("\n=== Step 5: Finalising Results Table ===")
+    self._update_block_b_results_table(
+        selected_tracker=selected,
+        fragment_report=fragment_report,
+        interp_report=interp_report,
+        test_seqs=test_seqs,
+    )
 
-        # Step 6: Finalise results table
-        print("\n=== Step 5: Finalising Results Table ===")
-        self._update_block_b_results_table(
-            selected_tracker=selected,
-            fragment_report=fragment_report,
-            interp_report=interp_report,
-            test_seqs=test_seqs,
-        )
-
-        print("\n=== Block B Analysis Complete ===")
-        print("Canonical Block B outputs (_final.json) ready for Block C.")
-        print(f"Tracker frozen: {selected} -> configs/config_blockC.yaml")
+    print("\n=== Block B Analysis Complete ===")
+    print("Canonical Block B outputs (_final.json) ready for Block C.")
+    print(f"Tracker frozen: {selected} -> configs/config_blockC.yaml")
 
     def _update_block_b_results_table(self, selected_tracker, fragment_report,
                                        interp_report, test_seqs):

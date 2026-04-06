@@ -325,14 +325,14 @@ def apply_interpolation(trajectory_data: dict,
 
 def run_post_processing(
     trackers: list,
-    test_seqs: list,
+    seqs: list,
     day7_layout: str,
     schema_entry_fields: set,
     min_track_length: int = MIN_TRACK_LENGTH,
     max_interp_gap: int = MAX_INTERP_GAP,
 ) -> tuple:
     """
-    Runs fragment filter then interpolation for all trackers × all sequences.
+    Runs fragment filter then interpolation for all trackers × all provided sequences.
 
     Validates schema before processing each file (calls validate_trajectory_schema
     imported from src.error_propagation — lazy import to avoid circular import at
@@ -347,43 +347,46 @@ def run_post_processing(
     # Lazy import to avoid module-level circular dependency
     from src.error_propagation import validate_trajectory_schema
 
-    assert len(test_seqs) >= 1, "test_seqs must not be empty"
+    assert len(seqs) >= 1, "seqs must not be empty"
 
-    fragment_report     = {}
+    fragment_report = {}
     interpolation_report = {}
 
     for tracker in trackers:
-        fragment_report[tracker]      = {}
+        fragment_report[tracker] = {}
         interpolation_report[tracker] = {}
 
-        for seq in test_seqs:
+        for seq in seqs:
             # --- Load raw trajectory ---
             raw_p = get_raw_path(tracker, seq, day7_layout)
             with open(raw_p) as f:
                 raw = json.load(f)
 
-            # --- Schema validation (Issue 2 fix) ---
+            # --- Schema validation ---
             validate_trajectory_schema(raw, schema_entry_fields, raw_p)
 
             # --- Step 1: Fragment filter ---
             # Fragment filter applied BEFORE interpolation — avoids interpolating
             # tracks that would later be discarded, saving compute and preventing
             # ghost interpolation artefacts.
-            filtered = apply_fragment_filter(raw, tracker_name=tracker,
-                                              min_length=min_track_length)
+            filtered = apply_fragment_filter(
+                raw,
+                tracker_name=tracker,
+                min_length=min_track_length
+            )
 
             filt_p = get_filtered_path(tracker, seq, day7_layout)
             os.makedirs(os.path.dirname(filt_p) or ".", exist_ok=True)
             with open(filt_p, "w") as f:
                 json.dump(filtered, f, indent=2)
 
-            raw_track_count  = len(raw["tracks"])
+            raw_track_count = len(raw["tracks"])
             filt_track_count = len(filtered["tracks"])
 
             fragment_report[tracker][seq] = {
                 "tracks_before": raw_track_count,
-                "tracks_after":  filt_track_count,
-                "discarded":     filtered["tracks_discarded_by_filter"],
+                "tracks_after": filt_track_count,
+                "discarded": filtered["tracks_discarded_by_filter"],
             }
 
             # --- Step 2: Interpolation ---
@@ -410,6 +413,6 @@ def run_post_processing(
 
     logger.info(
         "run_post_processing complete. "
-        f"Trackers: {trackers}. Sequences: {test_seqs}. Layout: {day7_layout}."
+        f"Trackers: {trackers}. Sequences: {seqs}. Layout: {day7_layout}."
     )
     return fragment_report, interpolation_report
