@@ -748,6 +748,83 @@ class PipelineController:
             f"F3 + scaler fit + scaled CSVs for {len(all_seqs)} sequences."
         )
 
+    def run_block_c_day12(self):
+        """
+        Block C Day 12: Feature comparison via OC-SVM AUROC (Fix F02, Fix F04).
+
+        Prerequisites:
+          - Day 11 *_features_scaled.csv files must exist for all 10 sequences.
+          - models/minmax_scaler.pkl must exist (Day 11).
+          - config_blockC.yaml f3 fields must be true (Day 11).
+          - config_blockC.yaml tracker must be populated (Day 10).
+
+        Outputs:
+          - logs/block_c/block_c_auroc_results.csv
+          - logs/block_c/block_c_results_table.csv
+          - logs/block_c/ocsvm_trained_best.pkl
+          - logs/block_c/block_c_day12_metadata.json
+          - configs/config_blockC.yaml updated: best_feature_set + block_c_completed
+        """
+        import json
+        import os
+
+        import yaml
+
+        from src.block_c_evaluator import run_auroc_comparison
+
+        cfg_path  = "configs/config_blockC.yaml"
+        meta_path = "logs/metadata.json"
+
+        with open(cfg_path) as fh:
+            cfg = yaml.safe_load(fh)
+        with open(meta_path) as fh:
+            meta = json.load(fh)
+
+        # ── Prerequisite assertions ───────────────────────────────────────────
+        assert cfg.get("tracker") not in (None, "", "<SELECTED_TRACKER_FROM_DAY9>"), (
+            "config_blockC.yaml tracker is not populated. "
+            "Confirm Day 10 completed successfully."
+        )
+
+        f3_cfg = cfg.get("f3", {})
+        assert f3_cfg.get("inter_vehicle_dist_norm") is True, (
+            "config_blockC.yaml f3.inter_vehicle_dist_norm is not True. "
+            "Confirm Day 11 ran successfully."
+        )
+
+        scaler_path = cfg.get("scaler", {}).get("path", "models/minmax_scaler.pkl")
+        assert os.path.exists(scaler_path), (
+            f"Scaler not found at {scaler_path}. "
+            "Day 11 must complete before Day 12."
+        )
+
+        # ── Verify all 10 scaled CSVs exist ──────────────────────────────────
+        features_dir   = cfg.get("features_dir", "logs/block_c/")
+        scaled_suffix  = cfg.get("scaler", {}).get("scaled_suffix", "_features_scaled.csv")
+        all_seqs = (
+            meta["split_seqs"]["train"]
+            + meta["split_seqs"]["val"]
+            + meta["split_seqs"]["test"]
+        )
+        assert len(all_seqs) == 10 and len(set(all_seqs)) == 10, (
+            f"Expected exactly 10 unique sequences, got {len(all_seqs)} "
+            f"({len(set(all_seqs))} unique)."
+        )
+        missing_scaled = [
+            s for s in all_seqs
+            if not os.path.exists(os.path.join(features_dir, f"{s}{scaled_suffix}"))
+        ]
+        if missing_scaled:
+            raise FileNotFoundError(
+                f"Scaled CSVs missing for: {missing_scaled}. "
+                "Run Day 11 notebook first."
+            )
+
+        # ── Run evaluation ────────────────────────────────────────────────────
+        df_results = run_auroc_comparison(cfg, meta)
+        logger.info("Block C Day 12 complete.")
+        return df_results
+
     def run_block_d(self):
         """Block D - Anomaly detection."""
         print("[PipelineController] Block D: Anomaly detection - not yet implemented.")

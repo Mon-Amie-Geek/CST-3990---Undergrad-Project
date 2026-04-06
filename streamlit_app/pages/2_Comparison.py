@@ -190,34 +190,138 @@ else:
         "then pull to this repo for live display here."
     )
 
-# ── AUROC comparison (placeholder — populated Day 12) ───────────────────────
-st.subheader("Feature Set AUROC Comparison (Day 12 — placeholder)")
 
-features_data = {
-    "Feature Set": [
-        "F1: Density/Flow only",
-        "F2: Speed only",
-        "F3: Distance only",
-        "F1 + F2 (combined)",
-        "F1 + F3 (combined)",
-        "F2 + F3 (combined)",
-        "F1 + F2 + F3 (all)"
-    ],
-    "AUROC": [0.721, 0.814, 0.768, 0.852, 0.823, 0.891, 0.918],
-    "Silhouette Score": [0.342, 0.521, 0.468, 0.612, 0.587, 0.728, 0.782]
-}
+# -- OC-SVM AUROC comparison: loads Day 12 results when available
+import json as _json_bc
 
-df_features = pd.DataFrame(features_data)
-st.write("**placeholder — AUROC will be populated after Day 12 OC-SVM evaluation**")
-st.dataframe(df_features, use_container_width=True)
+st.subheader('Feature Set AUROC Comparison - OC-SVM (Block C Day 12)')
 
-st.caption("""
-- **AUROC:** Area Under Receiver Operating Characteristic Curve (anomaly detection) — Day 12
-- **Silhouette Score:** Measure of feature quality (range: -1 to 1, higher is better) — Day 12
-- F3 features (inter_vehicle_dist_norm, dwell_time_sec, proximity_flag) added Day 11
-""")
+_RESULTS_TABLE_CSV = os.path.normpath(
+    os.path.join(BLOCK_C_DIR, 'block_c_results_table.csv')
+)
+_DAY12_META_JSON = os.path.normpath(
+    os.path.join(BLOCK_C_DIR, 'block_c_day12_metadata.json')
+)
 
-st.markdown("---")
+_best_fs_for_summary    = None
+_best_auroc_for_summary = None
+_block_c_day12_done     = False
+
+if os.path.exists(_RESULTS_TABLE_CSV):
+    try:
+        df_auroc_table = pd.read_csv(_RESULTS_TABLE_CSV)
+        _CHECK = chr(10003)  # checkmark
+
+        _brow = df_auroc_table[
+            df_auroc_table['Selected'].astype(str).str.strip() == _CHECK
+        ]
+        if not _brow.empty:
+            _best_fs_for_summary    = str(_brow.iloc[0]['Feature Set'])
+            _best_auroc_for_summary = _brow.iloc[0]['AUROC']
+            _block_c_day12_done     = True
+            st.success(
+                '**Block C Day 12 complete.** Best feature set: **'
+                + _best_fs_for_summary
+                + '** - AUROC = '
+                + str(_best_auroc_for_summary)
+                + ' | best nu = '
+                + str(_brow.iloc[0]['Best Nu'])
+            )
+        else:
+            st.success('**Block C Day 12 results loaded.**')
+
+        st.dataframe(df_auroc_table, use_container_width=True)
+
+        # AUROC bar chart
+        _vauc = df_auroc_table[df_auroc_table['AUROC'].notna()].copy()
+        if not _vauc.empty:
+            _bar_cols = [
+                '#2ca02c' if str(r['Selected']).strip() == _CHECK else '#1f77b4'
+                for _, r in _vauc.iterrows()
+            ]
+            _fig_a = go.Figure(go.Bar(
+                x=_vauc['Feature Set'],
+                y=_vauc['AUROC'].astype(float),
+                marker_color=_bar_cols,
+                text=['{:.4f}'.format(v) for v in _vauc['AUROC'].astype(float)],
+                textposition='outside',
+            ))
+            _fig_a.update_layout(
+                title=(
+                    'OC-SVM AUROC by Feature Set - Fix F04 (3-sigma train-stats proxy labels)'
+                ),
+                xaxis_title='Feature Set',
+                yaxis_title='AUROC',
+                yaxis=dict(range=[0, 1.1]),
+                height=420,
+                showlegend=False,
+            )
+            st.plotly_chart(_fig_a, use_container_width=True)
+
+        # Silhouette bar chart
+        _vsil = df_auroc_table[df_auroc_table['Silhouette'].notna()].copy()
+        if not _vsil.empty:
+            _fig_s = go.Figure(go.Bar(
+                x=_vsil['Feature Set'],
+                y=_vsil['Silhouette'].astype(float),
+                marker_color='#9467bd',
+                text=['{:.4f}'.format(v) for v in _vsil['Silhouette'].astype(float)],
+                textposition='outside',
+            ))
+            _fig_s.update_layout(
+                title='Silhouette Score by Feature Set (val split, y_val_binary labels)',
+                xaxis_title='Feature Set',
+                yaxis_title='Silhouette Score',
+                height=380,
+                showlegend=False,
+            )
+            st.plotly_chart(_fig_s, use_container_width=True)
+
+        # Metadata expander
+        if os.path.exists(_DAY12_META_JSON):
+            with st.expander('Day 12 Provenance Metadata', expanded=False):
+                try:
+                    with open(_DAY12_META_JSON, encoding='utf-8') as _fh:
+                        _m12 = _json_bc.load(_fh)
+                    st.json({k: v for k, v in _m12.items()
+                             if k != 'y_val_binary_note'})
+                    st.caption(_m12.get('y_val_binary_note', ''))
+                except Exception as _me:
+                    st.warning('Could not read metadata: ' + str(_me))
+
+        st.caption(
+            'AUROC (Fix F04 - anti-circular): OC-SVM decision-function scores on '
+            'UA-DETRAC val split (MVI_20061). y_val_binary uses a 3-sigma threshold '
+            'from train-split statistics only - no val data contaminates labels. '
+            'Measures feature separability of statistical outliers within a normal '
+            'distribution, NOT true anomaly detection. Block D (AI City) has true GT. '
+            'Silhouette: cluster separation under proxy labels. '
+            'Fix F02: nu swept over {0.01, 0.02, 0.05, 0.10, 0.15} on 80/20 train '
+            'hold-out; GridSearchCV not used (OC-SVM has no negative class for CV). '
+            'Row counts may differ for F3-containing sets due to Day 11 NaN semantics.'
+        )
+
+    except Exception as _err:
+        st.warning('Could not load Day 12 AUROC results: ' + str(_err))
+
+else:
+    st.info(
+        'Block C Day 12 AUROC results not yet generated. '
+        'Run PipelineController.run_block_c_day12() or '
+        'python -m src.block_c_evaluator from the repo root, then pull '
+        'logs/block_c/block_c_results_table.csv to this repo.'
+    )
+
+st.caption(
+    'AUROC: Area Under ROC Curve - higher = better separability (Day 12). '
+    'Silhouette: cluster separation under 3-sigma proxy labels (Day 12). '
+    'F3 OC-SVM inputs: inter_vehicle_dist_norm, dwell_time_sec, '
+    'proximity_count_rolling (continuous/temporal behavioural indicators). '
+    'proximity_flag is in Day 11 CSV schema but excluded from Day 12 model '
+    'inputs (thesis alignment). F3 added Day 11; AUROC comparison Day 12.'
+)
+
+st.markdown('---')
 
 # ============================================================================
 # BLOCK D — ANOMALY METHOD COMPARISON
@@ -278,7 +382,11 @@ with col1:
     st.metric("Best Tracker", "ByteTrack", "IDF1: 0.672")
 
 with col2:
-    st.metric("Best Feature Set", "All Combined", "AUROC: 0.918")
+    st.metric(
+        "Best Feature Set",
+        _best_fs_for_summary if _block_c_day12_done else "All Combined",
+        f"AUROC: {_best_auroc_for_summary}" if _block_c_day12_done else "AUROC: 0.918 (placeholder)",
+    )
     st.metric("Best Anomaly Method", "One-Class SVM", "F1: 0.806")
 
 with col3:
