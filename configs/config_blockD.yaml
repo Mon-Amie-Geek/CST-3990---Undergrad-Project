@@ -1,10 +1,13 @@
 # config_blockD.yaml
 # Block D - Anomaly Detection Configuration
 
-detector: TBD_from_block_A
-tracker: TBD_from_block_B
+# Frozen from Block A : YOLOv8n selected (best speed/accuracy trade-off for traffic detection)
+detector: yolov8n
+# Frozen from Block B : SORT selected (highest IDF1=0.0412 among SORT / DeepSORT / ByteTrack)
+tracker: sort
+# Frozen from Block C : F2_only selected (best AUROC=0.9935, Silhouette=0.9431)
 # AUROC : Commonly used for anomaly detection - How normal and anomalous cases are separated across thresholds
-feature_set: TBD_from_block_C_best_AUROC
+feature_set: F2_only
 anomaly_methods:
   # Interpretable, no model training required, traditional benchmark
   - rule_based
