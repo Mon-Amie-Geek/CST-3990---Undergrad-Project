@@ -1,14 +1,15 @@
 """
 2_Comparison.py
 
-Comparison page showing experimental results.
-Block C section (Day 10+) loads actual feature CSVs from logs/block_c/ when available.
-Results for Blocks A, B, D remain placeholder until those days complete.
+Comparison page showing experimental results from all blocks.
+Blocks A, B, C load from actual result files in logs/.
+Block D section is pending — placeholder shown until evaluation completes.
 Student: MANJOO Ameera Najla | M01014463
 """
 
 import os
 import glob
+import json
 
 import streamlit as st
 import pandas as pd
@@ -18,88 +19,270 @@ st.set_page_config(page_title="Comparison - CST3990 Traffic Anomaly Detection", 
 
 st.title("📊 Results Comparison")
 
+# ── Shared path helpers ───────────────────────────────────────────────────────
+_PAGES_DIR  = os.path.dirname(__file__)                                   # streamlit_app/pages/
+_REPO_ROOT  = os.path.normpath(os.path.join(_PAGES_DIR, "..", ".."))     # repo root
+_LOGS_DIR   = os.path.join(_REPO_ROOT, "logs")
+_BLOCK_C_DIR = os.path.normpath(os.path.join(_LOGS_DIR, "block_c"))
+_CHECK = chr(10003)  # ✓
+
+def _load_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
 st.info("""
-📌 **Placeholder Results Notice**
-
-Results tables below show placeholder data as actual experimental results will be populated 
-during Days 5-18 of the research phase. All values are currently illustrative examples 
-and will be updated with real experimental data from the pipeline testing phase.
+**Research Progress:** Blocks A (Day 6), B (Days 7–9), and C (Days 10–12) are **complete** with actual experimental data.
+Block D (Anomaly Detection on AI City Track 4) is **in progress** — placeholder structure shown.
 """)
-
 st.markdown("---")
 
-# ============================================================================
-# BLOCK A — DETECTOR COMPARISON
-# ============================================================================
+# =============================================================================
+# BLOCK A — DETECTOR COMPARISON (logs/block_a_results.json)
+# =============================================================================
 st.header("Block A — Detector Comparison")
 
-detector_data = {
-    "Detector": ["YOLOv8n (fine-tuned)", "MobileNet-SSD (COCO)"],
-    "mAP@0.5": [0.742, 0.628],
-    "Precision": [0.812, 0.704],
-    "Recall": [0.698, 0.623],
-    "FPS (CPU)": [12.5, 8.2]
-}
+_ba = _load_json(os.path.join(_LOGS_DIR, "block_a_results.json"))
 
-df_detectors = pd.DataFrame(detector_data)
-st.write("**placeholder — to be updated with experimental results**")
-st.dataframe(df_detectors, use_container_width=True)
+if _ba:
+    _det = _ba["detectors"]
+    _sel = _ba.get("selected_detector", "yolov8n")
 
-st.caption("""
-- **mAP@0.5:** Mean Average Precision at IoU=0.5 on UA-DETRAC test set
-- **FPS:** Frames per second on CPU (Intel Iris Plus, no GPU)
-- YOLOv8n is fine-tuned on UA-DETRAC; MobileNet-SSD uses COCO pre-training
-""")
+    # Selection callout
+    st.success(
+        f"**Block A frozen (Day 6) — Selected: `{_sel.upper()}`** &nbsp;|&nbsp; "
+        f"mAP@0.5 = {_det[_sel]['mAP50']:.4f} &nbsp;|&nbsp; "
+        f"mAP delta vs SSD300 = {_det['yolov8n']['mAP50'] - _det['ssd300']['mAP50']:.4f} "
+        f"(threshold 0.05 — accuracy criterion dominates)"
+    )
+
+    # Build display table
+    _rows_a = [
+        {
+            "Detector":           "YOLOv8n (fine-tuned on UA-DETRAC)",
+            "mAP@0.5":            _det["yolov8n"]["mAP50"],
+            "mAP@0.5:0.95":       _det["yolov8n"]["mAP50-95"],
+            "Precision":          _det["yolov8n"]["precision"],
+            "Recall":             _det["yolov8n"]["recall"],
+            "FPS p50 (T4 GPU)":   _det["yolov8n"]["fps_p50"],
+            "Latency p95 (ms)":   _det["yolov8n"]["latency_p95_ms"],
+            "Fine-tuned":         "Yes",
+            "Selected":           _CHECK,
+        },
+        {
+            "Detector":           "SSD300 (COCO — Fix F06)",
+            "mAP@0.5":            _det["ssd300"]["mAP50"],
+            "mAP@0.5:0.95":       _det["ssd300"]["mAP50-95"],
+            "Precision":          _det["ssd300"]["precision"],
+            "Recall":             _det["ssd300"]["recall"],
+            "FPS p50 (T4 GPU)":   _det["ssd300"]["fps_p50"],
+            "Latency p95 (ms)":   _det["ssd300"]["latency_p95_ms"],
+            "Fine-tuned":         "No (COCO only)",
+            "Selected":           "",
+        },
+    ]
+    df_a = pd.DataFrame(_rows_a)
+    st.dataframe(df_a, use_container_width=True)
+
+    # mAP comparison chart
+    _names_a  = ["YOLOv8n (fine-tuned)", "SSD300 (COCO)"]
+    _colors_a = ["#2ca02c", "#1f77b4"]
+    fig_a = go.Figure()
+    fig_a.add_trace(go.Bar(
+        name="mAP@0.5",
+        x=_names_a,
+        y=[_det["yolov8n"]["mAP50"], _det["ssd300"]["mAP50"]],
+        marker_color=_colors_a,
+        text=[f"{_det['yolov8n']['mAP50']:.4f}", f"{_det['ssd300']['mAP50']:.4f}"],
+        textposition="outside",
+    ))
+    fig_a.add_trace(go.Bar(
+        name="mAP@0.5:0.95",
+        x=_names_a,
+        y=[_det["yolov8n"]["mAP50-95"], _det["ssd300"]["mAP50-95"]],
+        marker_color=["#98df8a", "#aec7e8"],
+        text=[f"{_det['yolov8n']['mAP50-95']:.4f}", f"{_det['ssd300']['mAP50-95']:.4f}"],
+        textposition="outside",
+    ))
+    fig_a.update_layout(
+        barmode="group",
+        title="Block A — Detector mAP Comparison (UA-DETRAC test split: MVI_20062, MVI_20063)",
+        yaxis=dict(range=[0, 0.85], title="mAP"),
+        xaxis_title="Detector",
+        height=430,
+        legend_title="Metric",
+    )
+    st.plotly_chart(fig_a, use_container_width=True)
+
+    # Precision / Recall chart
+    fig_a_pr = go.Figure()
+    fig_a_pr.add_trace(go.Bar(
+        name="Precision",
+        x=_names_a,
+        y=[_det["yolov8n"]["precision"], _det["ssd300"]["precision"]],
+        marker_color=_colors_a,
+        text=[f"{_det['yolov8n']['precision']:.4f}", f"{_det['ssd300']['precision']:.4f}"],
+        textposition="outside",
+    ))
+    fig_a_pr.add_trace(go.Bar(
+        name="Recall",
+        x=_names_a,
+        y=[_det["yolov8n"]["recall"], _det["ssd300"]["recall"]],
+        marker_color=["#98df8a", "#aec7e8"],
+        text=[f"{_det['yolov8n']['recall']:.4f}", f"{_det['ssd300']['recall']:.4f}"],
+        textposition="outside",
+    ))
+    fig_a_pr.update_layout(
+        barmode="group",
+        title="Block A — Precision & Recall Comparison",
+        yaxis=dict(range=[0, 1.0], title="Score"),
+        xaxis_title="Detector",
+        height=380,
+        legend_title="Metric",
+    )
+    st.plotly_chart(fig_a_pr, use_container_width=True)
+
+    st.caption(f"""
+    - Evaluated on UA-DETRAC test split (MVI_20062, MVI_20063). IoU threshold = {_ba['evaluation_iou_threshold']}
+    - **FPS measured on {_ba['inference_hardware']}.**
+    - ⚠️ {_ba['hardware_note']}
+    - SSD300 uses COCO pre-training only — no UA-DETRAC fine-tuning (Fix F06)
+    - Selection rule: primary = mAP@0.5 if delta > 0.05; secondary = FPS p50
+    - ⚠️ {_ba['resolution_note']}
+    """)
+
+else:
+    st.warning(f"Block A results not found at `logs/block_a_results.json`")
+    st.info("Run Block A evaluation (Day 6) to generate results.")
 
 st.markdown("---")
 
-# ============================================================================
-# BLOCK B — TRACKER COMPARISON
-# ============================================================================
+# =============================================================================
+# BLOCK B — TRACKER COMPARISON (logs/block_b_results.json)
+# =============================================================================
 st.header("Block B — Tracker Comparison")
 
-tracker_data = {
-    "Tracker": ["SORT", "DeepSORT", "ByteTrack"],
-    "MOTA": [0.651, 0.712, 0.738],
-    "IDF1": [0.543, 0.628, 0.672],
-    "ID Switches": [142, 89, 64],
-    "Fragmentation": [23, 14, 8],
-    "FPS (CPU)": [18.2, 14.5, 12.1]
-}
+_bb = _load_json(os.path.join(_LOGS_DIR, "block_b_results.json"))
 
-df_trackers = pd.DataFrame(tracker_data)
-st.write("**placeholder — to be updated with experimental results**")
-st.dataframe(df_trackers, use_container_width=True)
+if _bb:
+    _sel_trk = next((t for t in _bb["trackers"] if t.get("selected")), None)
 
-st.caption("""
-- **MOTA:** Multi-Object Tracking Accuracy
-- **IDF1:** ID F1 Score (identity consistency)
-- **ID Switches:** Number of identity switches (lower is better)
-- **Fragmentation:** Number of fragmented tracks (lower is better)
-- **FPS:** Processing speed on CPU
-""")
+    # Selection callout
+    if _sel_trk:
+        st.success(
+            f"**Block B frozen (Day 9) — Selected: `{_sel_trk['tracker'].upper()}`** &nbsp;|&nbsp; "
+            f"IDF1 = {_sel_trk['idf1_mean']:.4f} &nbsp;|&nbsp; "
+            f"MOTA = {_sel_trk['mota_mean']:.4f} &nbsp;|&nbsp; "
+            f"IDSW = {_sel_trk['idsw_total']}"
+        )
+
+    # Build display table
+    _name_map = {
+        "sort":      "SORT",
+        "deepsort":  f"DeepSORT (osnet_x1_0_veri_776)",
+        "bytetrack": "ByteTrack",
+    }
+    _rows_b = []
+    for t in _bb["trackers"]:
+        _rows_b.append({
+            "Tracker":        _name_map.get(t["tracker"], t["tracker"]),
+            "MOTA (mean)":    round(t["mota_mean"], 4),
+            "IDF1 (mean)":    round(t["idf1_mean"], 4),
+            "ID Switches":    t["idsw_total"],
+            "Fragmentations": t["fragmentations_total"],
+            "FPS (median)":   t["fps_median"],
+            "Selected":       _CHECK if t.get("selected") else "",
+        })
+    df_b = pd.DataFrame(_rows_b)
+    st.dataframe(df_b, use_container_width=True)
+
+    # IDF1 chart (primary selection criterion)
+    _trk_names  = [r["Tracker"] for r in _rows_b]
+    _trk_colors = ["#2ca02c" if r["Selected"] == _CHECK else "#1f77b4" for r in _rows_b]
+    fig_b_idf1 = go.Figure(go.Bar(
+        x=_trk_names,
+        y=[r["IDF1 (mean)"] for r in _rows_b],
+        marker_color=_trk_colors,
+        text=[f"{r['IDF1 (mean)']:.4f}" for r in _rows_b],
+        textposition="outside",
+    ))
+    fig_b_idf1.update_layout(
+        title="Block B — IDF1 Score (primary selection criterion: identity consistency for Block C)",
+        yaxis=dict(
+            range=[0, max(r["IDF1 (mean)"] for r in _rows_b) * 1.5 + 0.005],
+            title="IDF1"
+        ),
+        xaxis_title="Tracker",
+        height=380,
+        showlegend=False,
+    )
+    st.plotly_chart(fig_b_idf1, use_container_width=True)
+
+    # MOTA chart
+    fig_b_mota = go.Figure(go.Bar(
+        x=_trk_names,
+        y=[r["MOTA (mean)"] for r in _rows_b],
+        marker_color=_trk_colors,
+        text=[f"{r['MOTA (mean)']:.4f}" for r in _rows_b],
+        textposition="outside",
+    ))
+    fig_b_mota.update_layout(
+        title="Block B — MOTA (negative due to heavy occlusion in UA-DETRAC; max_age=5 frames)",
+        yaxis_title="MOTA",
+        xaxis_title="Tracker",
+        height=380,
+        showlegend=False,
+    )
+    st.plotly_chart(fig_b_mota, use_container_width=True)
+
+    # Per-sequence breakdown
+    with st.expander("Per-Sequence Breakdown (MVI_20062 / MVI_20063)", expanded=False):
+        for t in _bb["trackers"]:
+            sel_badge = " ✓ Selected" if t.get("selected") else ""
+            st.write(f"**{t['tracker'].upper()}{sel_badge}**")
+            _seq_rows = []
+            for seq_id, seq_data in t.get("per_seq", {}).items():
+                _seq_rows.append({
+                    "Sequence":       seq_id,
+                    "MOTA":           round(seq_data.get("mota", float("nan")), 4),
+                    "IDF1":           round(seq_data.get("idf1", float("nan")), 4),
+                    "ID Switches":    seq_data.get("idsw", "—"),
+                    "Fragmentations": seq_data.get("fragmentations", "—"),
+                    "FPS":            seq_data.get("fps", seq_data.get("fps_median", "—")),
+                })
+            st.dataframe(pd.DataFrame(_seq_rows), use_container_width=True)
+
+    st.caption(f"""
+    - **Selection criterion:** {_bb['selection_criterion']}
+    - **Why MOTA is negative:** UA-DETRAC sequences have dense occlusion (>50% overlap periods);
+      SORT uses max_age=5 to prevent ID fragmentation. False tracks accumulate, dragging MOTA below zero.
+      IDF1 is the more informative metric for identity continuity needed by Block C.
+    - All trackers run on YOLOv8n detection cache (Block A frozen output, conf=0.25, nms=0.45)
+    - DeepSORT uses VeRi-776 ReID (osnet_x1_0_veri_776); SORT and ByteTrack use IoU-only association
+    """)
+
+else:
+    st.warning("Block B results not found at `logs/block_b_results.json`")
+    st.info("Run Block B evaluation (Days 7–9) to generate results.")
 
 st.markdown("---")
 
-# ============================================================================
-# BLOCK C — FEATURE SET COMPARISON (Day 10: loads actual CSVs when available)
-# ============================================================================
+# =============================================================================
+# BLOCK C — FEATURE SET COMPARISON (logs/block_c/)
+# =============================================================================
 st.header("Block C — Feature Set Comparison")
 
-# ── Try to load actual feature CSVs produced by Day 10 ──────────────────────
-BLOCK_C_DIR = os.path.join(
-    os.path.dirname(__file__), "..", "..", "logs", "block_c"
-)
-BLOCK_C_DIR = os.path.normpath(BLOCK_C_DIR)
-
-feature_csvs = sorted(glob.glob(os.path.join(BLOCK_C_DIR, "*_features.csv")))
+# ── Load actual feature CSVs ─────────────────────────────────────────────────
+feature_csvs = sorted(glob.glob(os.path.join(_BLOCK_C_DIR, "*_features.csv")))
 
 if feature_csvs:
     st.success(
-        f"**Day 10 feature CSVs found** — {len(feature_csvs)} sequence(s) in `logs/block_c/`"
+        f"**Block C feature CSVs found** — {len(feature_csvs)} sequences in `logs/block_c/`"
+        " (schema v1.1: F1 + F2 + F3 features)"
     )
 
-    # Load and concatenate all available CSVs
     dfs = []
     for p in feature_csvs:
         try:
@@ -110,15 +293,16 @@ if feature_csvs:
     if dfs:
         df_all = pd.concat(dfs, ignore_index=True)
 
-        # ── Summary stats ────────────────────────────────────────────────────
-        st.subheader("Feature Dataset Summary (F1 + F2 — Day 10)")
-
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total rows",       f"{len(df_all):,}")
-        col2.metric("Sequences",        df_all["seq_id"].nunique() if "seq_id" in df_all else "?")
-        col3.metric("Tracks",           df_all["track_id"].nunique() if "track_id" in df_all else "?")
-        col4.metric("Interpolated rows",
-                    f"{int(df_all['is_interpolated'].sum()):,}" if "is_interpolated" in df_all else "?")
+        # Summary metrics
+        st.subheader("Feature Dataset Summary (F1 + F2 + F3 — schema v1.1)")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        col1.metric("Total rows",        f"{len(df_all):,}")
+        col2.metric("Sequences",         df_all["seq_id"].nunique() if "seq_id" in df_all else "?")
+        col3.metric("Unique tracks",     df_all["track_id"].nunique() if "track_id" in df_all else "?")
+        col4.metric("Interpolated rows", f"{int(df_all['is_interpolated'].sum()):,}" if "is_interpolated" in df_all else "?")
+        col5.metric("F3 non-NaN rows",
+                    f"{int(df_all['inter_vehicle_dist_norm'].notna().sum()):,}"
+                    if "inter_vehicle_dist_norm" in df_all else "?")
 
         # Split breakdown
         if "split" in df_all.columns:
@@ -127,7 +311,7 @@ if feature_csvs:
             split_counts.columns = ["split", "rows"]
             st.dataframe(split_counts, use_container_width=True)
 
-        # ── F1 velocity / vehicle count chart ───────────────────────────────
+        # F1: vehicle count distribution
         if "vehicle_count" in df_all.columns and "seq_id" in df_all.columns:
             st.subheader("F1: Vehicle Count Distribution per Sequence")
             vc_stats = (
@@ -137,71 +321,78 @@ if feature_csvs:
                 .rename(columns={"mean": "Mean Count", "max": "Max Count"})
             )
             fig_vc = go.Figure()
-            fig_vc.add_trace(go.Bar(
-                x=vc_stats["seq_id"], y=vc_stats["Mean Count"],
-                name="Mean", marker_color="#1f77b4"
-            ))
-            fig_vc.add_trace(go.Bar(
-                x=vc_stats["seq_id"], y=vc_stats["Max Count"],
-                name="Max", marker_color="#ff7f0e"
-            ))
-            fig_vc.update_layout(
-                barmode="group", title="Vehicle Count (mean / max) per Sequence",
-                xaxis_title="Sequence", yaxis_title="Vehicle Count", height=380
-            )
+            fig_vc.add_trace(go.Bar(x=vc_stats["seq_id"], y=vc_stats["Mean Count"],
+                                     name="Mean", marker_color="#1f77b4"))
+            fig_vc.add_trace(go.Bar(x=vc_stats["seq_id"], y=vc_stats["Max Count"],
+                                     name="Max",  marker_color="#ff7f0e"))
+            fig_vc.update_layout(barmode="group",
+                                  title="Vehicle Count (mean / max) per Sequence",
+                                  xaxis_title="Sequence", yaxis_title="Vehicle Count", height=380)
             st.plotly_chart(fig_vc, use_container_width=True)
 
-        # ── F2 speed distribution ────────────────────────────────────────────
+        # F2: speed distribution
         if "vel_px_sec_smooth" in df_all.columns:
-            st.subheader("F2: Smoothed Speed Distribution (vel_px_sec_smooth)")
+            st.subheader("F2: Smoothed Speed Distribution (vel_px_sec_smooth — px/sec)")
             speed_data = df_all["vel_px_sec_smooth"].dropna()
-            fig_sp = go.Figure()
-            fig_sp.add_trace(go.Histogram(
+            fig_sp = go.Figure(go.Histogram(
                 x=speed_data, nbinsx=60,
-                marker_color="#2ca02c", opacity=0.75,
-                name="vel_px_sec_smooth"
+                marker_color="#2ca02c", opacity=0.75, name="vel_px_sec_smooth"
             ))
             fig_sp.update_layout(
                 title="Distribution of vel_px_sec_smooth across all sequences",
-                xaxis_title="Speed (px/sec, smoothed)",
-                yaxis_title="Count",
-                height=350
+                xaxis_title="Speed (px/sec, 5-frame rolling mean at 25 FPS)",
+                yaxis_title="Count", height=350
             )
             st.plotly_chart(fig_sp, use_container_width=True)
             st.caption(
-                "speed_window = int(0.2 × fps) frames (Fix F07). "
-                "At 25 FPS = 5-frame rolling mean. Image-space proxy — not calibrated to km/h."
+                "speed_window = int(0.2 × fps) = 5 frames at 25 FPS (Fix F07). "
+                "Image-space proxy — not calibrated to km/h."
             )
 
-        # ── Per-sequence feature stats table ────────────────────────────────
-        st.subheader("Per-Sequence Feature Statistics")
-        stat_cols = [c for c in ["vehicle_count", "roi_occupancy", "vel_px_sec", "vel_px_sec_smooth"]
-                     if c in df_all.columns]
+        # F3: inter-vehicle distance distribution
+        if "inter_vehicle_dist_norm" in df_all.columns:
+            st.subheader("F3: Inter-Vehicle Distance Distribution (inter_vehicle_dist_norm)")
+            dist_data = df_all["inter_vehicle_dist_norm"].dropna()
+            fig_dist = go.Figure(go.Histogram(
+                x=dist_data, nbinsx=60,
+                marker_color="#9467bd", opacity=0.75, name="inter_vehicle_dist_norm"
+            ))
+            fig_dist.update_layout(
+                title="Distribution of inter_vehicle_dist_norm across all sequences",
+                xaxis_title="Normalised distance (frame-diagonal proxy — NOT physical)",
+                yaxis_title="Count", height=350
+            )
+            st.plotly_chart(fig_dist, use_container_width=True)
+            st.caption(
+                "⚠️ Image-space proxy normalised by frame diagonal (640×√2 ≈ 905 px). "
+                "NaN when only one track present in frame (single-track frames excluded from F3 sets). "
+                "Fix F28: perspective effects mean this is NOT physical distance."
+            )
+
+        # Per-sequence feature stats
+        st.subheader("Per-Sequence Feature Statistics (mean across all rows)")
+        stat_cols = [c for c in [
+            "vehicle_count", "roi_occupancy",
+            "vel_px_sec", "vel_px_sec_smooth",
+            "inter_vehicle_dist_norm", "dwell_time_sec", "proximity_count_rolling"
+        ] if c in df_all.columns]
         if stat_cols and "seq_id" in df_all.columns:
             stats_df = df_all.groupby("seq_id")[stat_cols].mean().round(4).reset_index()
             st.dataframe(stats_df, use_container_width=True)
 
-    st.markdown("---")
-
 else:
     st.info(
-        "**Block C feature CSVs not yet generated locally.** "
-        "Run Day 10 notebook in Colab to generate `logs/block_c/*_features.csv`, "
-        "then pull to this repo for live display here."
+        "**Block C feature CSVs not found locally.** "
+        "Pull `logs/block_c/*_features.csv` from the research environment."
     )
 
+st.markdown("---")
 
-# -- OC-SVM AUROC comparison: loads Day 12 results when available
-import json as _json_bc
+# ── OC-SVM AUROC comparison (Day 12) ─────────────────────────────────────────
+st.subheader("Feature Set AUROC Comparison — OC-SVM (Block C Day 12)")
 
-st.subheader('Feature Set AUROC Comparison - OC-SVM (Block C Day 12)')
-
-_RESULTS_TABLE_CSV = os.path.normpath(
-    os.path.join(BLOCK_C_DIR, 'block_c_results_table.csv')
-)
-_DAY12_META_JSON = os.path.normpath(
-    os.path.join(BLOCK_C_DIR, 'block_c_day12_metadata.json')
-)
+_RESULTS_TABLE_CSV = os.path.normpath(os.path.join(_BLOCK_C_DIR, "block_c_results_table.csv"))
+_DAY12_META_JSON   = os.path.normpath(os.path.join(_BLOCK_C_DIR, "block_c_day12_metadata.json"))
 
 _best_fs_for_summary    = None
 _best_auroc_for_summary = None
@@ -209,201 +400,181 @@ _block_c_day12_done     = False
 
 if os.path.exists(_RESULTS_TABLE_CSV):
     try:
-        df_auroc_table = pd.read_csv(_RESULTS_TABLE_CSV)
-        _CHECK = chr(10003)  # checkmark
+        df_auroc = pd.read_csv(_RESULTS_TABLE_CSV)
 
-        _brow = df_auroc_table[
-            df_auroc_table['Selected'].astype(str).str.strip() == _CHECK
-        ]
+        _brow = df_auroc[df_auroc["Selected"].astype(str).str.strip() == _CHECK]
         if not _brow.empty:
-            _best_fs_for_summary    = str(_brow.iloc[0]['Feature Set'])
-            _best_auroc_for_summary = _brow.iloc[0]['AUROC']
+            _best_fs_for_summary    = str(_brow.iloc[0]["Feature Set"])
+            _best_auroc_for_summary = float(_brow.iloc[0]["AUROC"])
             _block_c_day12_done     = True
             st.success(
-                '**Block C Day 12 complete.** Best feature set: **'
-                + _best_fs_for_summary
-                + '** - AUROC = '
-                + str(_best_auroc_for_summary)
-                + ' | best nu = '
-                + str(_brow.iloc[0]['Best Nu'])
+                f"**Block C Day 12 complete — Best feature set: `{_best_fs_for_summary}`** &nbsp;|&nbsp; "
+                f"AUROC = {_best_auroc_for_summary:.4f} &nbsp;|&nbsp; "
+                f"Silhouette = {float(_brow.iloc[0]['Silhouette']):.4f} &nbsp;|&nbsp; "
+                f"best nu = {_brow.iloc[0]['Best Nu']}"
             )
         else:
-            st.success('**Block C Day 12 results loaded.**')
+            st.success("**Block C Day 12 results loaded.**")
 
-        st.dataframe(df_auroc_table, use_container_width=True)
+        st.dataframe(df_auroc, use_container_width=True)
 
         # AUROC bar chart
-        _vauc = df_auroc_table[df_auroc_table['AUROC'].notna()].copy()
+        _vauc = df_auroc[df_auroc["AUROC"].notna()].copy()
         if not _vauc.empty:
             _bar_cols = [
-                '#2ca02c' if str(r['Selected']).strip() == _CHECK else '#1f77b4'
+                "#2ca02c" if str(r["Selected"]).strip() == _CHECK else "#1f77b4"
                 for _, r in _vauc.iterrows()
             ]
-            _fig_a = go.Figure(go.Bar(
-                x=_vauc['Feature Set'],
-                y=_vauc['AUROC'].astype(float),
+            fig_auroc = go.Figure(go.Bar(
+                x=_vauc["Feature Set"],
+                y=_vauc["AUROC"].astype(float),
                 marker_color=_bar_cols,
-                text=['{:.4f}'.format(v) for v in _vauc['AUROC'].astype(float)],
-                textposition='outside',
+                text=[f"{v:.4f}" for v in _vauc["AUROC"].astype(float)],
+                textposition="outside",
             ))
-            _fig_a.update_layout(
-                title=(
-                    'OC-SVM AUROC by Feature Set - Fix F04 (3-sigma train-stats proxy labels)'
-                ),
-                xaxis_title='Feature Set',
-                yaxis_title='AUROC',
-                yaxis=dict(range=[0, 1.1]),
-                height=420,
+            fig_auroc.update_layout(
+                title="OC-SVM AUROC by Feature Set — Fix F04 (3-sigma train-stats proxy labels)",
+                xaxis_title="Feature Set",
+                yaxis=dict(range=[0, 1.15], title="AUROC"),
+                height=430,
                 showlegend=False,
             )
-            st.plotly_chart(_fig_a, use_container_width=True)
+            st.plotly_chart(fig_auroc, use_container_width=True)
 
         # Silhouette bar chart
-        _vsil = df_auroc_table[df_auroc_table['Silhouette'].notna()].copy()
+        _vsil = df_auroc[df_auroc["Silhouette"].notna()].copy()
         if not _vsil.empty:
-            _fig_s = go.Figure(go.Bar(
-                x=_vsil['Feature Set'],
-                y=_vsil['Silhouette'].astype(float),
-                marker_color='#9467bd',
-                text=['{:.4f}'.format(v) for v in _vsil['Silhouette'].astype(float)],
-                textposition='outside',
+            _sil_cols = [
+                "#2ca02c" if str(r["Selected"]).strip() == _CHECK else "#9467bd"
+                for _, r in _vsil.iterrows()
+            ]
+            fig_sil = go.Figure(go.Bar(
+                x=_vsil["Feature Set"],
+                y=_vsil["Silhouette"].astype(float),
+                marker_color=_sil_cols,
+                text=[f"{v:.4f}" for v in _vsil["Silhouette"].astype(float)],
+                textposition="outside",
             ))
-            _fig_s.update_layout(
-                title='Silhouette Score by Feature Set (val split, y_val_binary labels)',
-                xaxis_title='Feature Set',
-                yaxis_title='Silhouette Score',
+            fig_sil.update_layout(
+                title="Silhouette Score by Feature Set (val split, 3-sigma proxy labels)",
+                xaxis_title="Feature Set",
+                yaxis_title="Silhouette Score",
                 height=380,
                 showlegend=False,
             )
-            st.plotly_chart(_fig_s, use_container_width=True)
+            st.plotly_chart(fig_sil, use_container_width=True)
 
-        # Metadata expander
+        # Day 12 metadata expander
         if os.path.exists(_DAY12_META_JSON):
-            with st.expander('Day 12 Provenance Metadata', expanded=False):
+            with st.expander("Day 12 Provenance Metadata", expanded=False):
                 try:
-                    with open(_DAY12_META_JSON, encoding='utf-8') as _fh:
-                        _m12 = _json_bc.load(_fh)
-                    st.json({k: v for k, v in _m12.items()
-                             if k != 'y_val_binary_note'})
-                    st.caption(_m12.get('y_val_binary_note', ''))
-                except Exception as _me:
-                    st.warning('Could not read metadata: ' + str(_me))
+                    with open(_DAY12_META_JSON, encoding="utf-8") as fh:
+                        m12 = json.load(fh)
+                    st.json({k: v for k, v in m12.items() if k != "y_val_binary_note"})
+                    st.caption(m12.get("y_val_binary_note", ""))
+                except Exception as me:
+                    st.warning(f"Could not read metadata: {me}")
 
         st.caption(
-            'AUROC (Fix F04 - anti-circular): OC-SVM decision-function scores on '
-            'UA-DETRAC val split (MVI_20061). y_val_binary uses a 3-sigma threshold '
-            'from train-split statistics only - no val data contaminates labels. '
-            'Measures feature separability of statistical outliers within a normal '
-            'distribution, NOT true anomaly detection. Block D (AI City) has true GT. '
-            'Silhouette: cluster separation under proxy labels. '
-            'Fix F02: nu swept over {0.01, 0.02, 0.05, 0.10, 0.15} on 80/20 train '
-            'hold-out; GridSearchCV not used (OC-SVM has no negative class for CV). '
-            'Row counts may differ for F3-containing sets due to Day 11 NaN semantics.'
+            "AUROC (Fix F04 — anti-circular): OC-SVM decision-function scores on "
+            "UA-DETRAC val split (MVI_20061). y_val_binary uses a 3-sigma threshold "
+            "from train-split statistics only — no val data contaminates labels. "
+            "Measures feature separability of statistical outliers within a normal "
+            "distribution, NOT true anomaly detection. Block D (AI City) provides true GT. "
+            "Silhouette: cluster separation under proxy labels. "
+            "Fix F02: nu swept over {0.01, 0.02, 0.05, 0.10, 0.15} on 80/20 train "
+            "hold-out. Row counts may differ for F3-containing sets due to NaN semantics "
+            "(single-track frames have no inter-vehicle distance)."
         )
 
-    except Exception as _err:
-        st.warning('Could not load Day 12 AUROC results: ' + str(_err))
-
+    except Exception as err:
+        st.warning(f"Could not load Day 12 AUROC results: {err}")
 else:
     st.info(
-        'Block C Day 12 AUROC results not yet generated. '
-        'Run PipelineController.run_block_c_day12() or '
-        'python -m src.block_c_evaluator from the repo root, then pull '
-        'logs/block_c/block_c_results_table.csv to this repo.'
+        "Block C Day 12 AUROC results not found. "
+        "Run `PipelineController.run_block_c_day12()` and pull "
+        "`logs/block_c/block_c_results_table.csv` to this repo."
     )
-
-st.caption(
-    'AUROC: Area Under ROC Curve - higher = better separability (Day 12). '
-    'Silhouette: cluster separation under 3-sigma proxy labels (Day 12). '
-    'F3 OC-SVM inputs: inter_vehicle_dist_norm, dwell_time_sec, '
-    'proximity_count_rolling (continuous/temporal behavioural indicators). '
-    'proximity_flag is in Day 11 CSV schema but excluded from Day 12 model '
-    'inputs (thesis alignment). F3 added Day 11; AUROC comparison Day 12.'
-)
-
-st.markdown('---')
-
-# ============================================================================
-# BLOCK D — ANOMALY METHOD COMPARISON
-# ============================================================================
-st.header("Block D — Anomaly Detection Method Comparison")
-
-anomaly_data = {
-    "Method": ["Rule-Based (Z-score)", "One-Class SVM", "Isolation Forest"],
-    "Precision": [0.782, 0.851, 0.823],
-    "Recall": [0.698, 0.764, 0.751],
-    "F1 Score": [0.738, 0.806, 0.786],
-    "False Alarm Rate (%)": [12.3, 8.5, 9.1]
-}
-
-df_anomaly = pd.DataFrame(anomaly_data)
-st.write("**placeholder — to be updated with experimental results**")
-st.dataframe(df_anomaly, use_container_width=True)
-
-st.caption("""
-- **Precision:** True positives / (True positives + False positives)
-- **Recall:** True positives / (True positives + False negatives)
-- **F1 Score:** Harmonic mean of Precision and Recall
-- **False Alarm Rate:** Percentage of false positive detections
-""")
-
-# Create F1 score comparison chart
-st.subheader("F1 Score Comparison Across Anomaly Methods")
-fig = go.Figure(data=[
-    go.Bar(
-        x=df_anomaly["Method"],
-        y=df_anomaly["F1 Score"],
-        marker=dict(color=["#1f77b4", "#ff7f0e", "#2ca02c"]),
-        text=df_anomaly["F1 Score"],
-        textposition="outside"
-    )
-])
-fig.update_layout(
-    title="Anomaly Detection Method Performance (F1 Score)",
-    yaxis_title="F1 Score",
-    xaxis_title="Detection Method",
-    height=400,
-    showlegend=False,
-    yaxis=dict(range=[0, 1])
-)
-st.plotly_chart(fig, use_container_width=True)
 
 st.markdown("---")
 
-# ============================================================================
+# =============================================================================
+# BLOCK D — ANOMALY DETECTION METHOD COMPARISON (pending)
+# =============================================================================
+st.header("Block D — Anomaly Detection Method Comparison")
+
+st.warning("""
+**Block D evaluation is pending.** Results will be populated after evaluation on the AI City Track 4
+dataset (stall / crash ground truth annotations).
+
+Config frozen on 2026-04-07:
+- Detector: `yolov8n` | Tracker: `sort` | Feature set: `F2_only`
+- Dataset: AI City Track 4 | FAR threshold: 0.10 | seed: 42
+""")
+
+anomaly_data = {
+    "Method":               ["Rule-Based (Z-score)", "One-Class SVM", "Isolation Forest"],
+    "Precision":            ["—", "—", "—"],
+    "Recall":               ["—", "—", "—"],
+    "F1 Score":             ["—", "—", "—"],
+    "False Alarm Rate (%)": ["—", "—", "—"],
+    "Status":               ["Pending", "Pending", "Pending"],
+}
+df_d = pd.DataFrame(anomaly_data)
+st.dataframe(df_d, use_container_width=True)
+
+st.caption("""
+- **Precision:** TP / (TP + FP) on AI City Track 4 anomaly events
+- **Recall:** TP / (TP + FN) on AI City Track 4 anomaly events
+- **F1 Score:** Harmonic mean of Precision and Recall
+- **False Alarm Rate:** % of normal frames flagged as anomalous (target ≤ 10% per config_blockD.yaml)
+- OC-SVM trained on UA-DETRAC normal-only training split (ua_detrac_train_normal_only)
+""")
+
+st.markdown("---")
+
+# =============================================================================
 # SUMMARY
-# ============================================================================
-st.header("Key Findings (Placeholder)")
+# =============================================================================
+st.header("Key Findings")
 
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric("Best Detector", "YOLOv8n", "74.2% mAP@0.5")
-    st.metric("Best Tracker", "ByteTrack", "IDF1: 0.672")
+    if _ba:
+        st.metric(
+            "Best Detector",
+            "YOLOv8n (fine-tuned)",
+            f"mAP@0.5 = {_ba['detectors']['yolov8n']['mAP50']:.4f}"
+        )
+    else:
+        st.metric("Best Detector", "YOLOv8n (fine-tuned)", "mAP@0.5 = 0.6674")
+
+    if _bb and _sel_trk:
+        st.metric(
+            "Best Tracker",
+            _sel_trk["tracker"].upper(),
+            f"IDF1 = {_sel_trk['idf1_mean']:.4f}"
+        )
+    else:
+        st.metric("Best Tracker", "SORT", "IDF1 = 0.0412")
 
 with col2:
     st.metric(
         "Best Feature Set",
-        _best_fs_for_summary if _block_c_day12_done else "All Combined",
-        f"AUROC: {_best_auroc_for_summary}" if _block_c_day12_done else "AUROC: 0.918 (placeholder)",
+        _best_fs_for_summary if _block_c_day12_done else "F2_only",
+        f"AUROC = {_best_auroc_for_summary:.4f}" if _block_c_day12_done else "AUROC = 0.9935",
     )
-    st.metric("Best Anomaly Method", "One-Class SVM", "F1: 0.806")
+    st.metric("Best Anomaly Method", "Pending (Block D)", "—")
 
 with col3:
-    st.metric("Avg Processing FPS", "~14 fps", "CPU only")
-    st.metric("Trade-off", "Speed vs Accuracy", "3rd-frame skip used")
-
-st.markdown("---")
+    st.metric("Scaler", "MinMaxScaler", "Fitted on UA-DETRAC train (normal only)")
+    st.metric("Seed", "42", "All blocks, all splits")
 
 st.info("""
-**Note on Results Validity**
-
-These placeholder results demonstrate the structure and metrics used for evaluation. 
-Actual experimental results from Days 5-18 will replace these values. The system tracks:
-
-- Detection performance on UA-DETRAC test set
-- Tracking robustness metrics (MOTA, IDF1)
-- Feature discriminative power (AUROC, Silhouette)
-- Anomaly detection effectiveness (Precision, Recall, F1)
-- Real-time feasibility (FPS on CPU hardware)
+**Key Insight (Block C):** F2_only (speed proxy) achieves AUROC = 0.9935 — far above
+F1 (density/flow, AUROC = 0.4724), F2+F3 (AUROC = 0.641), and All Features (AUROC = 0.7312).
+Adding F3 interaction features reduces separability on UA-DETRAC normal-traffic validation,
+likely because proximity metrics carry little discriminative signal in a normal-traffic distribution.
+Block D will evaluate on AI City Track 4 where true anomalies (stalls, crashes) are present.
 """)

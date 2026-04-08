@@ -13,7 +13,7 @@ This Streamlit application implements a configurable computer vision pipeline fo
 
 ### Block A — Detection
 - **YOLOv8n** (fine-tuned on UA-DETRAC)
-- **MobileNet-SSD** (COCO pre-training via PyTorch Hub)
+- **SSD300** (COCO pre-training via torchvision)
 
 ### Block B — Tracking
 - **SORT** (Kalman filter + IoU association)
@@ -252,7 +252,7 @@ Not suitable for:
 **Solution:**
 1. Ensure `models/best.pt` exists in the root directory
 2. Check file permissions (read access required)
-3. Alternatively, use MobileNet-SSD from the sidebar
+3. Alternatively, use SSD300 from the sidebar
 
 ### Out of Memory
 **Error:** `RuntimeError: CUDA out of memory` or similar
@@ -281,7 +281,7 @@ Not suitable for:
 1. The system already uses frame skipping (every 3rd frame)
 2. Upload shorter video clips for testing  
 3. Reduce confidence threshold (faster but lower precision)
-4. Use MobileNet-SSD instead of YOLOv8 (faster but less accurate)
+4. Use SSD300 instead of YOLOv8 (faster but less accurate)
 
 ---
 

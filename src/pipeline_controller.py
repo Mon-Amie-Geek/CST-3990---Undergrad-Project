@@ -825,10 +825,50 @@ class PipelineController:
         logger.info("Block C Day 12 complete.")
         return df_results
 
-    def run_block_d(self):
-        """Block D - Anomaly detection."""
-        print("[PipelineController] Block D: Anomaly detection - not yet implemented.")
-        # Day 13-16: Call src/anomaly_detector.py
+    def run_block_d(self, events_path: str = "data/ai_city/events.json"):
+        """
+        Block D — Anomaly Detection on AI City Track 4.
+
+        Day 13: Rule-based baseline (Z-score on X_raw; IQR on X_scaled).
+                Calls: event_loader → event_slicer → feature_extractor (F2_only)
+                       → rule_based_detector → evaluator
+                Output: logs/block_d/block_d_results.csv (Day 13 rows filled;
+                        OC-SVM and Isolation Forest rows as Day 14 placeholders)
+
+        Day 14 will extend: ocsvm_detector (pre-trained Block C model),
+                            isolation_forest_detector (fit on UA-DETRAC normal)
+
+        Fix F25: stub updated on Day 13 — no longer a pass-through.
+        """
+        # ── Import here to avoid circular dependency at module load time ──────
+        from src.block_d_rule_based import (  # noqa: PLC0415
+            run_rule_based_baseline,
+            audit_config,
+        )
+        import yaml  # noqa: PLC0415
+
+        # Load Block C config for speed_window_sec and other shared params
+        cfg_c_path = "configs/config_blockC.yaml"
+        if not os.path.exists(cfg_c_path):
+            raise FileNotFoundError(f"Block C config not found: {cfg_c_path}")
+        with open(cfg_c_path, encoding="utf-8") as f:
+            cfg_c = yaml.safe_load(f)
+
+        print("[PipelineController] Block D: Running Day 13 rule-based baseline.")
+        print(f"[PipelineController]   Config : configs/config_blockD.yaml")
+        print(f"[PipelineController]   Events : {events_path}")
+
+        results_df = run_rule_based_baseline(
+            cfg_d=self.cfg,
+            cfg_c=cfg_c,
+            events_path=events_path,
+            scaler_path=self.cfg.get("scaler", "models/minmax_scaler.pkl"),
+            verbose=True,
+        )
+
+        print("[PipelineController] Block D Day 13 complete.")
+        print(f"[PipelineController]   Results saved to: logs/block_d/block_d_results.csv")
+        return results_df
 
 
 if __name__ == "__main__":
