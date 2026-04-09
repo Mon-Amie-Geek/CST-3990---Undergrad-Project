@@ -8,6 +8,8 @@ Purpose:
   - Reuse Day 9 fragment filtering + interpolation
   - Write raw / filtered / final SORT trajectories for AI City videos only
   - Avoid changing the original UA-DETRAC Block B pipeline
+  - Use GPU when available
+  - Process only anomaly windows (+ context padding) for speed
 """
 
 from __future__ import annotations
@@ -16,10 +18,11 @@ import json
 import math
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
+import torch
 import yaml
 from ultralytics import YOLO
 
@@ -37,8 +40,12 @@ from src.seed_control import set_all_seeds
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TRAJ_DIR = REPO_ROOT / "logs" / "block_b" / "trajectories"
 MODEL_PATH = REPO_ROOT / "models" / "best.pt"
+
 FRAME_SIZE = 640
 FRAME_DIAGONAL = float(math.sqrt(FRAME_SIZE ** 2 + FRAME_SIZE ** 2))
+
+# Match Block D context padding
+CONTEXT_SEC = 5.0
 
 
 def _load_configs() -> tuple[dict, dict]:
@@ -50,13 +57,24 @@ def _load_configs() -> tuple[dict, dict]:
     return cfg_a, cfg_b
 
 
-def _compute_velocity_norm(prev_cx, prev_cy, curr_cx, curr_cy, fps) -> float | None:
+def _compute_velocity_norm(
+    prev_cx: Optional[float],
+    prev_cy: Optional[float],
+    curr_cx: float,
+    curr_cy: float,
+    fps: float,
+) -> float | None:
     """Match the Block B velocity_norm contract in 640x640 image space."""
-    if prev_cx is None:
+    if prev_cx is None or prev_cy is None:
         return None
     dist_px = math.sqrt((curr_cx - prev_cx) ** 2 + (curr_cy - prev_cy) ** 2)
     vel_px_sec = dist_px * fps
     return vel_px_sec / FRAME_DIAGONAL
+
+
+def _get_device() -> str | int:
+    """Use GPU when available, otherwise CPU."""
+    return 0 if torch.cuda.is_available() else "cpu"
 
 
 def _load_model(model_path: Path = MODEL_PATH) -> YOLO:
@@ -64,7 +82,6 @@ def _load_model(model_path: Path = MODEL_PATH) -> YOLO:
     if not model_path.exists():
         raise FileNotFoundError(f"YOLO model not found at {model_path}")
     model = YOLO(str(model_path))
-    model.to("cpu")
     return model
 
 
@@ -75,12 +92,18 @@ def _run_sort_on_video(
     conf_thresh: float,
     nms_thresh: float,
     sort_cfg: dict,
+    start_frame: int | None = None,
+    end_frame: int | None = None,
 ) -> dict:
     """
     Run detector + SORT on one AI City clip and return raw trajectory payload.
+
+    For speed, this can operate only on [start_frame, end_frame] rather than
+    the entire video.
     """
     fps = get_actual_fps(video_path)
     warmup_boundary = max(10, int(0.4 * fps))
+    device = _get_device()
 
     tracker = SORTTracker(
         max_age=sort_cfg["max_age"],
@@ -94,23 +117,58 @@ def _run_sort_on_video(
     if not cap.isOpened():
         raise ValueError(f"Cannot open video: {video_path}")
 
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+
+    if start_frame is None:
+        start_frame = 0
+    if end_frame is None:
+        end_frame = max(0, total_frames - 1)
+
+    start_frame = max(0, int(start_frame))
+    end_frame = int(end_frame)
+    if total_frames > 0:
+        end_frame = min(end_frame, total_frames - 1)
+
+    if end_frame < start_frame:
+        cap.release()
+        raise ValueError(
+            f"Invalid frame range for {video_path.name}: "
+            f"start_frame={start_frame}, end_frame={end_frame}"
+        )
+
+    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+
     raw_trajectories = defaultdict(list)
-    prev_centroids = {}
-    frame_idx = -1
+    prev_centroids: Dict[int, tuple[float, float]] = {}
+    frame_idx = start_frame - 1
+    processed_frames = 0
+
+    print(
+        f"[AI City SORT] video_id={video_id} "
+        f"frames {start_frame}..{end_frame} "
+        f"({end_frame - start_frame + 1} frames) "
+        f"device={device}"
+    )
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-        frame_idx += 1
 
-        frame_640 = cv2.resize(frame, (FRAME_SIZE, FRAME_SIZE), interpolation=cv2.INTER_LINEAR)
+        frame_idx += 1
+        if frame_idx > end_frame:
+            break
+
+        frame_640 = cv2.resize(
+            frame, (FRAME_SIZE, FRAME_SIZE), interpolation=cv2.INTER_LINEAR
+        )
+
         results = model(
             frame_640,
             conf=conf_thresh,
             iou=nms_thresh,
             verbose=False,
-            device="cpu",
+            device=device,
         )
 
         dets = []
@@ -118,7 +176,7 @@ def _run_sort_on_video(
             if result.boxes is None:
                 continue
             for box in result.boxes:
-                x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                x1, y1, x2, y2 = box.xyxy[0].detach().cpu().numpy()
                 conf = float(box.conf[0].item())
                 dets.append([float(x1), float(y1), float(x2), float(y2), conf])
 
@@ -152,6 +210,13 @@ def _run_sort_on_video(
                 }
             )
 
+        processed_frames += 1
+        if processed_frames % 200 == 0:
+            print(
+                f"[AI City SORT] video_id={video_id} "
+                f"processed {processed_frames} frame(s)..."
+            )
+
     cap.release()
 
     return {
@@ -165,10 +230,12 @@ def _run_sort_on_video(
         "frame_width": FRAME_SIZE,
         "frame_height": FRAME_SIZE,
         "frame_diagonal": FRAME_DIAGONAL,
-        "min_track_length": 15,
-        "max_interp_gap": 3,
+        "min_track_length": int(sort_cfg.get("min_track_length", 15)),
+        "max_interp_gap": int(sort_cfg.get("max_interp_gap", 3)),
         "fragment_filter_applied": False,
         "interpolation_applied": False,
+        "processed_start_frame": int(start_frame),
+        "processed_end_frame": int(end_frame),
         "tracks": dict(raw_trajectories),
     }
 
@@ -193,6 +260,7 @@ def generate_ai_city_sort_trajectories(
       logs/block_b/trajectories/{video_id}_sort_final.json
     """
     set_all_seeds()
+
     cfg_a, cfg_b = _load_configs()
     model = _load_model()
     events = load_events(events_path)
@@ -201,32 +269,59 @@ def generate_ai_city_sort_trajectories(
     wanted_ids = {str(e["video_id"]) for e in events}
     if video_ids is not None:
         wanted_ids &= {str(v) for v in video_ids}
-    wanted_ids = set(sorted(wanted_ids))
 
-    results = {}
+    results: Dict[str, dict] = {}
+
     for video_id in sorted(wanted_ids, key=int):
         event = next(e for e in events if str(e["video_id"]) == video_id)
         video_path = resolve_video_path(event["video_file"], index)
+
         if video_path is None:
-            print(f"[AI City SORT] SKIP video_id={video_id}: video file not found for {event['video_file']}")
+            print(
+                f"[AI City SORT] SKIP video_id={video_id}: "
+                f"video file not found for {event['video_file']}"
+            )
             continue
 
-        print(f"[AI City SORT] Processing video_id={video_id} -> {video_path.name}")
+        fps = get_actual_fps(video_path)
+        context_frames = int(CONTEXT_SEC * fps)
+        start_frame = max(0, int(event["anomaly_start_frame"]) - context_frames)
+        end_frame = int(event["anomaly_end_frame"]) + context_frames
+
+        print(
+            f"[AI City SORT] Processing video_id={video_id} -> {video_path.name} "
+            f"(anomaly {event['anomaly_start_frame']}..{event['anomaly_end_frame']}, "
+            f"context={context_frames} frames)"
+        )
+
         raw = _run_sort_on_video(
             video_path=video_path,
             video_id=video_id,
             model=model,
             conf_thresh=float(cfg_a["conf_thresh"]),
             nms_thresh=float(cfg_a["nms_thresh"]),
-            sort_cfg=cfg_b["sort"],
+            sort_cfg={
+                **cfg_b["sort"],
+                "min_track_length": int(cfg_b["min_track_length"]),
+                "max_interp_gap": int(cfg_b["max_interp_gap"]),
+            },
+            start_frame=start_frame,
+            end_frame=end_frame,
         )
 
         raw_path = TRAJ_DIR / f"{video_id}_sort.json"
         filtered_path = TRAJ_DIR / f"{video_id}_sort_filtered.json"
         final_path = TRAJ_DIR / f"{video_id}_sort_final.json"
 
-        filtered = apply_fragment_filter(raw, tracker_name="sort", min_length=cfg_b["min_track_length"])
-        final = apply_interpolation(filtered, max_gap=cfg_b["max_interp_gap"])
+        filtered = apply_fragment_filter(
+            raw,
+            tracker_name="sort",
+            min_length=int(cfg_b["min_track_length"]),
+        )
+        final = apply_interpolation(
+            filtered,
+            max_gap=int(cfg_b["max_interp_gap"]),
+        )
 
         _write_json(raw_path, raw)
         _write_json(filtered_path, filtered)
@@ -237,12 +332,18 @@ def generate_ai_city_sort_trajectories(
             "raw_path": str(raw_path),
             "filtered_path": str(filtered_path),
             "final_path": str(final_path),
+            "processed_start_frame": int(start_frame),
+            "processed_end_frame": int(end_frame),
             "n_raw_tracks": len(raw["tracks"]),
+            "n_filtered_tracks": len(filtered["tracks"]),
             "n_final_tracks": len(final["tracks"]),
         }
+
         print(
             f"[AI City SORT] Saved {raw_path.name}, {filtered_path.name}, {final_path.name} "
-            f"(raw_tracks={len(raw['tracks'])}, final_tracks={len(final['tracks'])})"
+            f"(raw_tracks={len(raw['tracks'])}, "
+            f"filtered_tracks={len(filtered['tracks'])}, "
+            f"final_tracks={len(final['tracks'])})"
         )
 
     return results
