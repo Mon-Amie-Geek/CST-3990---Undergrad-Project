@@ -1498,9 +1498,13 @@ def run_block_d_day14(
         print("[Block D Day 14] WARNING: No event rows to write.")
 
     # 2. block_d_skip_reasons.csv
+    skip_cols = ["method", "event_id", "video_id", "skip_reason"]
     if all_skip_rows:
-        pd.DataFrame(all_skip_rows).to_csv(SKIP_REASONS_CSV_PATH, index=False)
-        print(f"[Block D Day 14] Skip reasons saved: {SKIP_REASONS_CSV_PATH}")
+        skip_df = pd.DataFrame(all_skip_rows, columns=skip_cols)
+    else:
+        skip_df = pd.DataFrame(columns=skip_cols)
+    skip_df.to_csv(SKIP_REASONS_CSV_PATH, index=False)
+    print(f"[Block D Day 14] Skip reasons saved: {SKIP_REASONS_CSV_PATH}")
 
     # 3. block_d_results.csv  (Day 14 schema — overwrites Day 13 output)
     results_rows = []
