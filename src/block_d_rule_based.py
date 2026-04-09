@@ -374,17 +374,40 @@ def filter_short_tracks(df: pd.DataFrame, min_length: int = MIN_TRACK_LENGTH) ->
     """
     Fix F11 - fragment filter.
     Remove tracks with fewer than min_length genuine detections.
+
+    Robust to bool / string / numeric encodings in is_interpolated.
     """
     if df.empty:
         return df.copy()
 
-    genuine = df[df["is_interpolated"] == False]  # noqa: E712
+    df = df.copy()
+
+    if "is_interpolated" not in df.columns:
+        df["is_interpolated"] = False
+
+    def _to_bool_interp(x):
+        s = str(x).strip().lower()
+        if s in {"true", "1", "yes"}:
+            return True
+        if s in {"false", "0", "no", "nan", "none", ""}:
+            return False
+        return bool(x)
+
+    df["is_interpolated_norm"] = df["is_interpolated"].map(_to_bool_interp)
+
+    genuine = df.loc[~df["is_interpolated_norm"]].copy()
     if genuine.empty:
+        logger.warning(
+            "[F11] No genuine detections found after normalizing is_interpolated. "
+            "Returning empty dataframe."
+        )
         return df.iloc[0:0].copy()
 
     counts = genuine.groupby("track_id")["frame_idx"].count()
     valid = counts[counts >= min_length].index
     filtered = df[df["track_id"].isin(valid)].copy()
+    if "is_interpolated_norm" in filtered.columns:
+        filtered = filtered.drop(columns=["is_interpolated_norm"])
     n_removed = df["track_id"].nunique() - filtered["track_id"].nunique()
     if n_removed > 0:
         logger.debug("[F11] Removed %d short track(s) (< %d genuine frames).", n_removed, min_length)
@@ -964,30 +987,63 @@ def run_rule_based_baseline(
 
 def _load_and_validate_ocsvm(model_path: Path = OCSVM_PKL):
     """
-    Load and globally validate the Block C OC-SVM model.
+    Load and globally validate the Block C OC-SVM artifact.
 
-    Checks:
-      - File exists (fail loudly if not)
-      - Model was trained on exactly 2 features (matching F2_only)
+    Supports either:
+      1) raw sklearn model
+      2) packaged dict, e.g. {"model": ..., "feature_columns": [...]}
 
-    Raises RuntimeError on schema mismatch — aborts the entire OC-SVM method.
+    Validates the model is compatible with F2_only.
     """
     if not model_path.exists():
         raise FileNotFoundError(
             f"OC-SVM model not found at {model_path}. "
-            "Run Block C Day 11 to produce it before running Block D Day 14."
+            "Run Block C Day 12 to produce it before running Block D Day 14."
         )
-    model = joblib.load(model_path)
+    artifact = joblib.load(model_path)
 
-    # Validate feature count
+    if isinstance(artifact, dict):
+        if "feature_columns" not in artifact:
+            raise RuntimeError(
+                f"OC-SVM artifact at {model_path} is a dict but missing "
+                "'feature_columns'. Cannot validate F2_only schema."
+            )
+
+        feature_columns = list(artifact["feature_columns"])
+        if feature_columns != F2_COLS:
+            raise RuntimeError(
+                f"OC-SVM schema mismatch: artifact feature_columns={feature_columns}, "
+                f"expected F2_only columns={F2_COLS}. Aborting OC-SVM method entirely."
+            )
+
+        model = (
+            artifact.get("model")
+            or artifact.get("estimator")
+            or artifact.get("ocsvm_model")
+            or artifact.get("best_model")
+        )
+
+        if model is None:
+            raise RuntimeError(
+                f"OC-SVM artifact at {model_path} is a dict but no model object was found. "
+                "Expected one of keys: model, estimator, ocsvm_model, best_model."
+            )
+
+        print(
+            f"[Block D Day 14] OC-SVM loaded: {model_path.name}, "
+            f"validated via packaged dict on {len(feature_columns)} F2 features ({feature_columns})."
+        )
+        return model
+
+    model = artifact
     n_expected = len(F2_COLS)
     if hasattr(model, "n_features_in_"):
-        n_model = model.n_features_in_
+        n_model = int(model.n_features_in_)
     elif hasattr(model, "support_vectors_"):
-        n_model = model.support_vectors_.shape[1]
+        n_model = int(model.support_vectors_.shape[1])
     else:
         raise RuntimeError(
-            f"Cannot determine feature count from OC-SVM model at {model_path}. "
+            f"Cannot determine feature count from raw OC-SVM model at {model_path}. "
             "Cannot validate F2_only schema. Aborting OC-SVM method."
         )
 
