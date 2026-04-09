@@ -26,5 +26,5 @@
   "seed": 42,
   "n_estimators": 100,
   "contamination": "auto",
-  "fit_timestamp": "2026-04-09T21:58:31.934110+00:00"
+  "fit_timestamp": "2026-04-09T22:07:04.529283+00:00"
 }
