@@ -35,6 +35,7 @@ models/*
 *.pkl
 !models/minmax_scaler.pkl
 !logs/block_c/ocsvm_trained_best.pkl
+!logs/block_d/isolation_forest_f2_train_normal.pkl
 
 # -----------------------------------------------
 # CACHE, LOGS, RUNS — generated at runtime
