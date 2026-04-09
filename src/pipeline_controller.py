@@ -842,8 +842,8 @@ class PipelineController:
         """
         # ── Import here to avoid circular dependency at module load time ──────
         from src.block_d_rule_based import (  # noqa: PLC0415
-            run_rule_based_baseline,
-            audit_config,
+            run_rule_based_baseline,  # Day 13 — kept importable
+            run_block_d_day14,
         )
         import yaml  # noqa: PLC0415
 
@@ -854,11 +854,11 @@ class PipelineController:
         with open(cfg_c_path, encoding="utf-8") as f:
             cfg_c = yaml.safe_load(f)
 
-        print("[PipelineController] Block D: Running Day 13 rule-based baseline.")
+        print("[PipelineController] Block D: Running Day 14 pipeline.")
         print(f"[PipelineController]   Config : configs/config_blockD.yaml")
         print(f"[PipelineController]   Events : {events_path}")
 
-        results_df = run_rule_based_baseline(
+        run_block_d_day14(
             cfg_d=self.cfg,
             cfg_c=cfg_c,
             events_path=events_path,
@@ -866,9 +866,8 @@ class PipelineController:
             verbose=True,
         )
 
-        print("[PipelineController] Block D Day 13 complete.")
+        print("[PipelineController] Block D Day 14 complete.")
         print(f"[PipelineController]   Results saved to: logs/block_d/block_d_results.csv")
-        return results_df
 
 
 if __name__ == "__main__":

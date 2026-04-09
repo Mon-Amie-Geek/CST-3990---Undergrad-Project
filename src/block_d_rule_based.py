@@ -27,7 +27,10 @@ import cv2
 import joblib
 import numpy as np
 import pandas as pd
+from datetime import datetime, timezone
+
 from scipy.stats import zscore
+from sklearn.ensemble import IsolationForest
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 logger = logging.getLogger(__name__)
@@ -50,6 +53,21 @@ IQR_MULT = 1.5
 SPEED_WINDOW_SEC = 0.2
 TRACKER = "sort"
 F2_IDX = [0, 1]
+
+# ── Day 14 constants ──────────────────────────────────────────────────────────
+OCSVM_PKL = REPO_ROOT / "logs" / "block_c" / "ocsvm_trained_best.pkl"
+IF_PKL = BLOCK_D_LOG_DIR / "isolation_forest_f2_train_normal.pkl"
+IF_TRAIN_META_JSON = BLOCK_D_LOG_DIR / "isolation_forest_training_metadata.json"
+METADATA_JSON = REPO_ROOT / "logs" / "metadata.json"
+BLOCK_C_LOG_DIR = REPO_ROOT / "logs" / "block_c"
+EVENT_PREDS_CSV = BLOCK_D_LOG_DIR / "block_d_event_predictions.csv"
+SKIP_REASONS_CSV_PATH = BLOCK_D_LOG_DIR / "block_d_skip_reasons.csv"
+BLOCK_D_META_JSON = BLOCK_D_LOG_DIR / "block_d_metadata.json"
+F2_COLS = ["vel_px_sec", "vel_px_sec_smooth"]
+
+IF_N_ESTIMATORS = 100
+IF_CONTAMINATION = "auto"
+IF_RANDOM_STATE = 42
 
 
 def audit_config(cfg: dict) -> None:
@@ -938,3 +956,572 @@ def run_rule_based_baseline(
     results_df = evaluate_per_method(y_true, y_pred)
     full_table = build_results_table(results_df)
     return full_table
+
+
+# ============================================================
+# Day 14 helpers
+# ============================================================
+
+def _load_and_validate_ocsvm(model_path: Path = OCSVM_PKL):
+    """
+    Load and globally validate the Block C OC-SVM model.
+
+    Checks:
+      - File exists (fail loudly if not)
+      - Model was trained on exactly 2 features (matching F2_only)
+
+    Raises RuntimeError on schema mismatch — aborts the entire OC-SVM method.
+    """
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"OC-SVM model not found at {model_path}. "
+            "Run Block C Day 11 to produce it before running Block D Day 14."
+        )
+    model = joblib.load(model_path)
+
+    # Validate feature count
+    n_expected = len(F2_COLS)
+    if hasattr(model, "n_features_in_"):
+        n_model = model.n_features_in_
+    elif hasattr(model, "support_vectors_"):
+        n_model = model.support_vectors_.shape[1]
+    else:
+        raise RuntimeError(
+            f"Cannot determine feature count from OC-SVM model at {model_path}. "
+            "Cannot validate F2_only schema. Aborting OC-SVM method."
+        )
+
+    if n_model != n_expected:
+        raise RuntimeError(
+            f"OC-SVM schema mismatch: model expects {n_model} features, "
+            f"but F2_only has {n_expected} ({F2_COLS}). "
+            "Aborting OC-SVM method entirely."
+        )
+
+    print(
+        f"[Block D Day 14] OC-SVM loaded: {model_path.name}, "
+        f"validated on {n_model} F2 features ({F2_COLS})."
+    )
+    return model
+
+
+def _train_isolation_forest(verbose: bool = True) -> IsolationForest:
+    """
+    Train an Isolation Forest on Block C train-split scaled features.
+
+    Data source  : logs/block_c/{seq_id}_features_scaled.csv (train split only)
+    Features     : vel_px_sec, vel_px_sec_smooth (F2_only)
+    Interp rows  : excluded via is_interpolated column; absence → warning + include all
+    Missing CSVs : fail with explicit error — never skip silently
+
+    Saves:
+      - logs/block_d/isolation_forest_f2_train_normal.pkl
+      - logs/block_d/isolation_forest_training_metadata.json
+    """
+    BLOCK_D_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Load train sequence IDs
+    if not METADATA_JSON.exists():
+        raise FileNotFoundError(
+            f"metadata.json not found at {METADATA_JSON}. "
+            "Cannot determine train split for Isolation Forest training."
+        )
+    with open(METADATA_JSON, encoding="utf-8") as f:
+        meta = json.load(f)
+
+    train_seq_ids: List[str] = meta["split_seqs"]["train"]
+    if not train_seq_ids:
+        raise ValueError("metadata.json['split_seqs']['train'] is empty.")
+
+    if verbose:
+        print(f"[Block D Day 14] IF training: {len(train_seq_ids)} train sequences: {train_seq_ids}")
+
+    # Load and validate each train CSV
+    all_chunks: List[pd.DataFrame] = []
+    rows_per_file: dict = {}
+    total_interp_excluded = 0
+    source_files: List[str] = []
+
+    for seq_id in train_seq_ids:
+        csv_path = BLOCK_C_LOG_DIR / f"{seq_id}_features_scaled.csv"
+        if not csv_path.exists():
+            raise FileNotFoundError(
+                f"Expected Block C scaled CSV not found: {csv_path}. "
+                "Cannot train Isolation Forest without complete train split. "
+                "Do not silently skip — run Block C first."
+            )
+
+        df = pd.read_csv(csv_path)
+
+        # Validate F2 columns present
+        for col in F2_COLS:
+            if col not in df.columns:
+                raise KeyError(
+                    f"Required F2 column '{col}' missing from {csv_path.name}. "
+                    "Block C output schema has changed unexpectedly."
+                )
+
+        # Exclude interpolated rows
+        if "is_interpolated" in df.columns:
+            # Handle both bool and string representations
+            interp_mask = df["is_interpolated"].map(
+                lambda x: str(x).strip().lower() == "true"
+            )
+            n_before = len(df)
+            df = df[~interp_mask].copy()
+            n_excluded = n_before - len(df)
+            total_interp_excluded += n_excluded
+            if verbose and n_excluded > 0:
+                print(f"  [{seq_id}] Excluded {n_excluded} interpolated rows.")
+        else:
+            logger.warning(
+                "[Block D Day 14] IF training: 'is_interpolated' column absent in %s — "
+                "including all rows from this file.",
+                csv_path.name,
+            )
+
+        chunk = df[F2_COLS].dropna()
+        n_rows = len(chunk)
+        rows_per_file[str(csv_path)] = n_rows
+        source_files.append(str(csv_path))
+        all_chunks.append(chunk)
+
+    if not all_chunks:
+        raise ValueError(
+            "No valid training rows found after loading all train-split CSVs. "
+            "Cannot fit Isolation Forest."
+        )
+
+    X_train = pd.concat(all_chunks, ignore_index=True).to_numpy(dtype=float)
+    total_rows = len(X_train)
+
+    if verbose:
+        print(
+            f"[Block D Day 14] IF training matrix: {total_rows} rows × {X_train.shape[1]} features "
+            f"({total_interp_excluded} interpolated rows excluded)."
+        )
+
+    # Fit
+    if_model = IsolationForest(
+        n_estimators=IF_N_ESTIMATORS,
+        contamination=IF_CONTAMINATION,
+        random_state=IF_RANDOM_STATE,
+    )
+    if_model.fit(X_train)
+
+    fit_ts = datetime.now(timezone.utc).isoformat()
+
+    # Persist model
+    joblib.dump(if_model, IF_PKL)
+    print(f"[Block D Day 14] IF model saved: {IF_PKL}")
+
+    # Persist training metadata
+    train_meta = {
+        "training_source_files": source_files,
+        "feature_columns": F2_COLS,
+        "total_rows_used": total_rows,
+        "rows_per_file": rows_per_file,
+        "interpolated_rows_excluded": total_interp_excluded,
+        "seed": IF_RANDOM_STATE,
+        "n_estimators": IF_N_ESTIMATORS,
+        "contamination": IF_CONTAMINATION,
+        "fit_timestamp": fit_ts,
+    }
+    with open(IF_TRAIN_META_JSON, "w", encoding="utf-8") as f:
+        json.dump(train_meta, f, indent=2)
+    print(f"[Block D Day 14] IF training metadata saved: {IF_TRAIN_META_JSON}")
+
+    return if_model
+
+
+# ============================================================
+# Day 14 public entry point
+# ============================================================
+
+def run_block_d_day14(
+    cfg_d: dict,
+    cfg_c: dict,
+    events_path: str | Path = EVENTS_JSON,
+    scaler_path: str | Path = SCALER_PKL,
+    verbose: bool = True,
+) -> None:
+    """
+    Block D Day 14: Full anomaly-comparison pipeline on AI City Track 4.
+
+    Runs four methods on the same event slices:
+      - Rule-Based (Z-score)     [from Day 13, reused]
+      - Rule-Based (IQR)         [from Day 13, reused]
+      - OC-SVM                   [Block C model, never refit]
+      - Isolation Forest         [trained here on Block C train-split normals]
+
+    All loaded events are positive anomaly events (gt_label=1).
+    FAR / Precision / F1 are left NaN — positive-only benchmark.
+
+    Outputs (all under logs/block_d/):
+      - block_d_results.csv
+      - block_d_event_predictions.csv
+      - block_d_skip_reasons.csv
+      - block_d_metadata.json
+      - isolation_forest_f2_train_normal.pkl
+      - isolation_forest_training_metadata.json
+      - event_slicer_verification.csv  (updated, Day 13-compatible schema)
+    """
+    BLOCK_D_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    scaler_path = Path(scaler_path)
+
+    print("[Block D Day 14] === Starting Day 14 pipeline ===")
+    audit_config(cfg_d)
+
+    anomaly_events = load_events(events_path)
+    n_total = len(anomaly_events)
+    video_index = build_video_index()
+    scaler = load_scaler(scaler_path)
+    speed_window_sec = float(cfg_c.get("f2", {}).get("speed_window_sec", SPEED_WINDOW_SEC))
+
+    # ── OC-SVM: load once and validate globally ───────────────────────────────
+    ocsvm_model = None
+    ocsvm_aborted = False
+    ocsvm_abort_reason = ""
+    try:
+        ocsvm_model = _load_and_validate_ocsvm(OCSVM_PKL)
+    except Exception as exc:
+        ocsvm_aborted = True
+        ocsvm_abort_reason = str(exc)
+        print(f"[Block D Day 14] OC-SVM ABORTED globally: {exc}")
+
+    # ── Isolation Forest: train on Block C train-split normals ────────────────
+    if_model = _train_isolation_forest(verbose=verbose)
+
+    # ── Event loop ────────────────────────────────────────────────────────────
+    METHOD_KEYS = [
+        "Rule-Based (Z-score)",
+        "Rule-Based (IQR)",
+        "OC-SVM",
+        "Isolation Forest",
+    ]
+
+    method_stats = {
+        m: {"evaluable": 0, "detected": 0, "skipped": 0, "anomaly_ratios": []}
+        for m in METHOD_KEYS
+    }
+    all_event_rows: List[dict] = []
+    all_skip_rows: List[dict] = []
+
+    for event in anomaly_events:
+        event_id = str(event["event_id"])
+        video_id = str(event["video_id"])
+        video_file = str(event["video_file"])
+        anomaly_start_frame = int(event["anomaly_start_frame"])
+        anomaly_end_frame = int(event["anomaly_end_frame"])
+
+        if verbose:
+            print(
+                f"\n[Block D Day 14] Event {event_id} "
+                f"(video_id={video_id}, file={video_file})"
+            )
+
+        # ── Shared pipeline (same steps as Day 13) ───────────────────────────
+        pipeline_skip_reason: Optional[str] = None
+        x_raw: Optional[np.ndarray] = None
+        x_scaled: Optional[np.ndarray] = None
+        n_valid = 0
+        actual_fps = 0.0
+
+        video_path = resolve_video_path(video_file, video_index)
+        if video_path is None:
+            pipeline_skip_reason = (
+                f"Video not found in indexed AI City roots for file '{video_file}'"
+            )
+
+        if pipeline_skip_reason is None:
+            try:
+                actual_fps = get_actual_fps(video_path)
+            except (FileNotFoundError, ValueError) as exc:
+                pipeline_skip_reason = f"FPS error: {exc}"
+
+        if pipeline_skip_reason is None:
+            traj_path = find_trajectory_path(video_id)
+            if traj_path is None:
+                pipeline_skip_reason = (
+                    f"No _{TRACKER}_final.json trajectory found for video_id={video_id}"
+                )
+
+        if pipeline_skip_reason is None:
+            try:
+                df_traj = load_trajectory_df(traj_path)
+            except Exception as exc:
+                pipeline_skip_reason = f"Trajectory load error: {exc}"
+
+        if pipeline_skip_reason is None:
+            if df_traj.empty:
+                pipeline_skip_reason = "Trajectory file loaded but contains no rows"
+
+        if pipeline_skip_reason is None:
+            context_frames = int(CONTEXT_SEC * actual_fps)
+            jump_to = max(0, anomaly_start_frame - context_frames)
+            window_end = anomaly_end_frame + context_frames
+            df_window = df_traj[
+                (df_traj["frame_idx"] >= jump_to) & (df_traj["frame_idx"] <= window_end)
+            ].copy()
+            if df_window.empty:
+                pipeline_skip_reason = "No trajectory rows inside event window"
+
+        if pipeline_skip_reason is None:
+            df_window["frame_idx"] = df_window["frame_idx"] - jump_to
+            df_window = filter_short_tracks(df_window)
+            if df_window.empty:
+                pipeline_skip_reason = "Empty after fragment filtering"
+
+        if pipeline_skip_reason is None:
+            df_window = interpolate_gaps(df_window)
+            if df_window.empty:
+                pipeline_skip_reason = "Empty after interpolation"
+
+        if pipeline_skip_reason is None:
+            df_window = strip_warmup(df_window, actual_fps)
+            if df_window.empty:
+                pipeline_skip_reason = "Empty after warmup strip"
+
+        if pipeline_skip_reason is None:
+            df_f2 = extract_f2_features(df_window, actual_fps, speed_window_sec=speed_window_sec)
+            df_f2_agg = aggregate_f2_per_frame(df_f2)
+            if df_f2_agg.empty:
+                pipeline_skip_reason = "Empty F2 matrix after aggregation"
+
+        if pipeline_skip_reason is None:
+            x_raw = df_f2_agg[["vel_px_sec", "vel_px_sec_smooth"]].to_numpy(dtype=float)
+            if x_raw.size == 0:
+                pipeline_skip_reason = "Empty F2 raw matrix"
+
+        if pipeline_skip_reason is None:
+            x_scaled = scale_f2_and_log(x_raw, video_id, scaler)
+            n_valid = int(x_raw.shape[0])
+
+        # ── Pipeline failure: skip all methods for this event ────────────────
+        if pipeline_skip_reason is not None:
+            if verbose:
+                print(f"  SKIP (shared pipeline): {pipeline_skip_reason}")
+            for method in METHOD_KEYS:
+                method_stats[method]["skipped"] += 1
+                all_event_rows.append(
+                    {
+                        "method": method,
+                        "event_id": event_id,
+                        "video_id": video_id,
+                        "video_file": video_file,
+                        "event_pred": "",
+                        "gt_label": 1,
+                        "total_valid_samples": 0,
+                        "anomalous_samples": "",
+                        "anomalous_ratio": "",
+                        "skipped": True,
+                        "skip_reason": pipeline_skip_reason,
+                    }
+                )
+                all_skip_rows.append(
+                    {
+                        "method": method,
+                        "event_id": event_id,
+                        "video_id": video_id,
+                        "skip_reason": pipeline_skip_reason,
+                    }
+                )
+            append_verification_log(
+                event_id, video_id, video_file,
+                anomaly_start_frame, anomaly_start_frame,
+                notes=pipeline_skip_reason,
+            )
+            continue
+
+        # ── Compute rule-based masks once (shared across both rule-based methods)
+        rb_masks = rule_based_score(x_raw, x_scaled)
+
+        # ── Per-method scoring ───────────────────────────────────────────────
+        for method in METHOD_KEYS:
+            method_skip_reason = ""
+            mask: Optional[np.ndarray] = None
+
+            if method == "Rule-Based (Z-score)":
+                mask = rb_masks["zscore"]
+
+            elif method == "Rule-Based (IQR)":
+                mask = rb_masks["iqr"]
+
+            elif method == "OC-SVM":
+                if ocsvm_aborted:
+                    method_skip_reason = (
+                        f"OC-SVM method aborted globally: {ocsvm_abort_reason}"
+                    )
+                elif x_scaled.size == 0:
+                    method_skip_reason = "Empty F2 matrix for OC-SVM inference"
+                else:
+                    try:
+                        preds = ocsvm_model.predict(x_scaled)
+                        mask = preds == -1
+                    except Exception as exc:
+                        method_skip_reason = f"OC-SVM predict error: {exc}"
+
+            elif method == "Isolation Forest":
+                if x_scaled.size == 0:
+                    method_skip_reason = "Empty F2 matrix for IF inference"
+                else:
+                    try:
+                        preds = if_model.predict(x_scaled)
+                        mask = preds == -1
+                    except Exception as exc:
+                        method_skip_reason = f"IF predict error: {exc}"
+
+            # ── Record results ───────────────────────────────────────────────
+            if method_skip_reason or mask is None:
+                final_reason = method_skip_reason or "mask unavailable"
+                method_stats[method]["skipped"] += 1
+                all_event_rows.append(
+                    {
+                        "method": method,
+                        "event_id": event_id,
+                        "video_id": video_id,
+                        "video_file": video_file,
+                        "event_pred": "",
+                        "gt_label": 1,
+                        "total_valid_samples": n_valid,
+                        "anomalous_samples": "",
+                        "anomalous_ratio": "",
+                        "skipped": True,
+                        "skip_reason": final_reason,
+                    }
+                )
+                all_skip_rows.append(
+                    {
+                        "method": method,
+                        "event_id": event_id,
+                        "video_id": video_id,
+                        "skip_reason": final_reason,
+                    }
+                )
+            else:
+                anomalous_count = int(mask.sum())
+                event_pred = 1 if anomalous_count >= 1 else 0
+                ratio = anomalous_count / n_valid if n_valid > 0 else 0.0
+                method_stats[method]["evaluable"] += 1
+                method_stats[method]["detected"] += event_pred
+                method_stats[method]["anomaly_ratios"].append(ratio)
+                all_event_rows.append(
+                    {
+                        "method": method,
+                        "event_id": event_id,
+                        "video_id": video_id,
+                        "video_file": video_file,
+                        "event_pred": event_pred,
+                        "gt_label": 1,
+                        "total_valid_samples": n_valid,
+                        "anomalous_samples": anomalous_count,
+                        "anomalous_ratio": round(ratio, 4),
+                        "skipped": False,
+                        "skip_reason": "",
+                    }
+                )
+
+        # Day 13-compatible verification log entry
+        append_verification_log(
+            event_id, video_id, video_file,
+            anomaly_start_frame, anomaly_start_frame,
+            visual_match="UNCHECKED",
+            notes=(
+                f"zscore={int(rb_masks['zscore'].any())} "
+                f"iqr={int(rb_masks['iqr'].any())}"
+            ),
+        )
+
+    # ── Write artifacts ───────────────────────────────────────────────────────
+
+    # 1. block_d_event_predictions.csv
+    if all_event_rows:
+        pd.DataFrame(all_event_rows).to_csv(EVENT_PREDS_CSV, index=False)
+        print(f"[Block D Day 14] Event predictions saved: {EVENT_PREDS_CSV}")
+    else:
+        print("[Block D Day 14] WARNING: No event rows to write.")
+
+    # 2. block_d_skip_reasons.csv
+    if all_skip_rows:
+        pd.DataFrame(all_skip_rows).to_csv(SKIP_REASONS_CSV_PATH, index=False)
+        print(f"[Block D Day 14] Skip reasons saved: {SKIP_REASONS_CSV_PATH}")
+
+    # 3. block_d_results.csv  (Day 14 schema — overwrites Day 13 output)
+    results_rows = []
+    for method in METHOD_KEYS:
+        stats = method_stats[method]
+        evaluable = stats["evaluable"]
+        detected = stats["detected"]
+        skipped = stats["skipped"]
+        ratios = stats["anomaly_ratios"]
+        recall = detected / evaluable if evaluable > 0 else 0.0
+        mean_ratio = float(np.mean(ratios)) if ratios else 0.0
+
+        results_rows.append(
+            {
+                "Method": method,
+                "Event_Type": "anomaly",
+                "Events_Total": n_total,
+                "Events_Evaluable": evaluable,
+                "Events_Detected": detected,
+                "Event_Recall": round(recall, 4),
+                "Skipped_Events": skipped,
+                "Mean_Anomalous_Ratio": round(mean_ratio, 4),
+                "FAR": float("nan"),
+                "Precision": float("nan"),
+                "F1": float("nan"),
+                "Notes": (
+                    "positive-only benchmark; "
+                    "FAR/Precision/F1 deferred: no normal clips evaluated in Day 14"
+                ),
+            }
+        )
+
+    results_df = pd.DataFrame(results_rows)
+    results_df.to_csv(RESULTS_CSV, index=False)
+    print(f"[Block D Day 14] Results table saved: {RESULTS_CSV}")
+
+    # 4. block_d_metadata.json
+    meta_doc = {
+        "scaler_path": str(scaler_path),
+        "ocsvm_model_path": str(OCSVM_PKL),
+        "isolation_forest_model_path": str(IF_PKL),
+        "isolation_forest_training_metadata_path": str(IF_TRAIN_META_JSON),
+        "feature_columns": F2_COLS,
+        "aggregation_rule": "event_pred = 1 if anomalous_count >= 1 else 0",
+        "valid_sample_definition": (
+            "survives fragment filter + interpolation gap-fill + warmup strip"
+        ),
+        "event_schema_assumption": (
+            "all loaded events are positive anomaly events (gt_label=1)"
+        ),
+        "evaluation_scope": (
+            "positive-only benchmark — FAR/Precision/F1 deferred"
+        ),
+        "events_total": n_total,
+        "per_method_evaluable": {
+            m: method_stats[m]["evaluable"] for m in METHOD_KEYS
+        },
+        "per_method_skipped": {
+            m: method_stats[m]["skipped"] for m in METHOD_KEYS
+        },
+        "ocsvm_aborted": ocsvm_aborted,
+        "ocsvm_abort_reason": ocsvm_abort_reason if ocsvm_aborted else "",
+        "blank_metrics_note": {
+            "FAR": "deferred: no normal clips evaluated in Day 14",
+            "Precision": "not computable: no negative events in Day 14 scope",
+            "F1": "not computable: no negative events in Day 14 scope",
+            "Specificity": "not computable: no negative events in Day 14 scope",
+        },
+    }
+    with open(BLOCK_D_META_JSON, "w", encoding="utf-8") as f:
+        json.dump(meta_doc, f, indent=2)
+    print(f"[Block D Day 14] Metadata saved: {BLOCK_D_META_JSON}")
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    print("\n[Block D Day 14] === Summary ===")
+    display_cols = [
+        "Method", "Events_Total", "Events_Evaluable",
+        "Events_Detected", "Event_Recall", "Mean_Anomalous_Ratio", "Skipped_Events",
+    ]
+    print(results_df[display_cols].to_string(index=False))
