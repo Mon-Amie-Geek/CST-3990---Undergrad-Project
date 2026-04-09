@@ -1,6 +1,6 @@
 {
   "day": 15,
-  "timestamp": "2026-04-09T17:50:10.590536+00:00",
+  "timestamp": "2026-04-09T22:27:39.180299+00:00",
   "canonical_keys_used": {
     "clip_key": "video_id",
     "event_key": "event_id",
@@ -23,7 +23,7 @@
     "blocker": false
   },
   "tudat_audit": {
-    "files_scanned": 210,
+    "files_scanned": 0,
     "blocker_hits": 0,
     "warning_hits": 0,
     "blocker": false
