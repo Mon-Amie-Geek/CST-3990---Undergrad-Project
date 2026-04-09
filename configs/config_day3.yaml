@@ -1,5 +1,5 @@
 # configs/config_day3.yaml
-# Day 3 - AI City + TU-DAT ingestor configuration
+# Day 3 - AI City dataset ingestor configuration
 # Mode of use : 
 # Windows SSD : $env:DATASET_ROOT ='D:\datasets'
 # Colab Drive : %env DATASET_ROOT=/content/drive/MyDrive/CST3990/datasets

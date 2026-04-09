@@ -1,0 +1,37 @@
+{
+  "day": 15,
+  "timestamp": "2026-04-09T17:50:10.590536+00:00",
+  "canonical_keys_used": {
+    "clip_key": "video_id",
+    "event_key": "event_id",
+    "method_normalization_applied": true
+  },
+  "event_coverage_audit": {
+    "total_event_method_pairs_checked": 30,
+    "ok_count": 30,
+    "missing_in_predictions_count": 0,
+    "sync_warning_count": 0,
+    "duplicate_rows_removed": 10,
+    "blocker": false
+  },
+  "frame_sync_sanity_check": {
+    "clips_checked": 9,
+    "plausible_count": 0,
+    "implausible_count": 0,
+    "video_not_found_count": 9,
+    "note": "Informative sanity check only -not a hard frame-truth assertion.",
+    "blocker": false
+  },
+  "tudat_audit": {
+    "files_scanned": 210,
+    "blocker_hits": 0,
+    "warning_hits": 0,
+    "blocker": false
+  },
+  "metadata_integrity": {
+    "passed": true,
+    "blocker": false
+  },
+  "scope_clarification_written": true,
+  "day15_exit_criteria_met": true
+}

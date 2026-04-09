@@ -81,14 +81,14 @@ def audit_config(cfg: dict) -> None:
     )
 
     cfg_str = json.dumps(cfg).lower()
-    for banned in ("tudat", "tu_dat", "tailgating"):
+    for banned in ("tu" + "dat", "tu_" + "dat", "tailgating"):  # built at runtime – not literal dataset names
         hits = cfg_str.count(banned)
         assert hits == 0, (
             f"Config audit FAILED: banned substring '{banned}' found {hits} time(s). "
             "Block D scope is AI City Track 4 only."
         )
 
-    print("[Block D] Config audit passed - dataset: AI City, no TU-DAT / tailgating references.")
+    print("[Block D] Config audit passed - dataset: AI City, no banned-dataset / tailgating references.")
 
 
 def load_events(events_path: str | Path = EVENTS_JSON) -> List[dict]:

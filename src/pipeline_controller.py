@@ -869,6 +869,30 @@ class PipelineController:
         print("[PipelineController] Block D Day 14 complete.")
         print(f"[PipelineController]   Results saved to: logs/block_d/block_d_results.csv")
 
+    def run_block_d_day15(self, cfg_path: str = "configs/config_blockD.yaml") -> dict:
+        """
+        Block D Day 15: Anomaly Bridge + Scope Clarification.
+
+        Validates event coverage, runs frame-sync sanity check, audits active
+        source files for eliminated-dataset references, checks metadata
+        integrity, writes the Fix F29 scope clarification, and produces
+        the day15_bridge_report.json.
+        """
+        from src.block_d_day15_bridge import run_day15
+        return run_day15(cfg_path)
+
+    def run_block_d_day16(self, cfg_path: str = "configs/config_blockD.yaml") -> dict:
+        """
+        Block D Day 16: Final Anomaly Validation.
+
+        Guards on Day 15 exit criteria, builds the canonical final results
+        table, cross-checks event slices, audits all config YAMLs for
+        eliminated-dataset references, confirms scaler provenance, and
+        produces the day16_validation_report.json.
+        """
+        from src.block_d_day16_validation import run_day16
+        return run_day16(cfg_path)
+
 
 if __name__ == "__main__":
     test_cfg = "configs/config_blockA.yaml"

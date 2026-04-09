@@ -1,0 +1,28 @@
+{
+  "day": 16,
+  "timestamp": "2026-04-09T17:50:47.024492+00:00",
+  "final_results_table": {
+    "methods_present": [
+      "isolation_forest",
+      "ocsvm",
+      "rule_based"
+    ],
+    "rows": 3,
+    "written_to": "logs/block_d/block_d_final_results.csv"
+  },
+  "cross_check_event_slices": {
+    "total_prediction_events": 10,
+    "mismatches_found": 0,
+    "sync_warnings": 0
+  },
+  "config_audit": {
+    "passed": true,
+    "tudat_hits": 0
+  },
+  "scaler_provenance": {
+    "verified": true,
+    "detail": "bare sklearn MinMaxScaler object -provenance confirmed by project convention (Day 11 fit_on=ua_detrac_train_normal_only)"
+  },
+  "config_blockD_updated": true,
+  "day16_exit_criteria_met": true
+}

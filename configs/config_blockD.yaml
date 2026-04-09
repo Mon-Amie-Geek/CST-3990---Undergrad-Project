@@ -1,31 +1,32 @@
-# config_blockD.yaml
-# Block D - Anomaly Detection Configuration
-
-# Frozen from Block A : YOLOv8n selected (best speed/accuracy trade-off for traffic detection)
 detector: yolov8n
-# Frozen from Block B : SORT selected (highest IDF1=0.0412 among SORT / DeepSORT / ByteTrack)
 tracker: sort
-# Frozen from Block C : F2_only selected (best AUROC=0.9935, Silhouette=0.9431)
-# AUROC : Commonly used for anomaly detection - How normal and anomalous cases are separated across thresholds
 feature_set: F2_only
 anomaly_methods:
-  # Interpretable, no model training required, traditional benchmark
-  - rule_based
-  # Classic anomaly detection - widely used : kernel-based
-  - ocsvm
-  # Standard method : tree-based
-  - isolation_forest
+- rule_based
+- ocsvm
+- isolation_forest
 datasets:
   primary: ai_city
-# Anomaly should be trained on normal data only
 ocsvm_train_on: ua_detrac_train_normal_only
-# Load the saved MinMax scaler from this path : Puts value into comparable numeric range
-# .pkl : Reproducibility 
 scaler: models/minmax_scaler.pkl
-# Context frames : Not hardcoded but determined dynamically
 context_frames: runtime
-# Report anomalies at event level, not raw frame-level
 per_event_reporting: true
-# False Alarm Rate : As reporting/control cutoff
-far_threshold: 0.10
+far_threshold: 0.1
 seed: 42
+paths:
+  event_slicer_verification: logs/block_d/event_slicer_verification.csv
+  block_d_event_predictions: logs/block_d/block_d_event_predictions.csv
+  block_d_results: logs/block_d/block_d_results.csv
+  block_d_metadata: logs/block_d/block_d_metadata.json
+  isolation_forest_model: logs/block_d/isolation_forest_f2_train_normal.pkl
+  ocsvm_model: logs/block_c/ocsvm_trained_best.pkl
+  day15_bridge_report: logs/block_d/day15_bridge_report.json
+  day15_event_coverage_audit: logs/block_d/day15_event_coverage_audit.csv
+  day15_frame_sync_sanity_check: logs/block_d/day15_frame_sync_sanity_check.csv
+  scope_clarification: docs/scope_clarification.txt
+  block_d_final_results: logs/block_d/block_d_final_results.csv
+  day16_validation_report: logs/block_d/day16_validation_report.json
+ai_city_video_dir: data/ai_city/
+block_d_completed: true
+day16_validated: true
+day16_timestamp: '2026-04-09T17:50:46.969972+00:00'

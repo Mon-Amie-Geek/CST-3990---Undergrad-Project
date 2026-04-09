@@ -1,0 +1,4 @@
+method,total_events,events_detected,detection_coverage_pct,anomalous_ratio,mean_anomaly_score,short_window_event_count,notes
+isolation_forest,10,10,100.0,1.0,,0,
+ocsvm,10,10,100.0,1.0,,0,
+rule_based,10,10,100.0,1.0,,0,

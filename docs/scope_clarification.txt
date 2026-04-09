@@ -1,0 +1,26 @@
+SCOPE CLARIFICATION — Fix F29
+CST3990 | MANJOO Ameera Najla | M01014463
+
+While the pipeline architecture is explicitly designed for real-time operation —
+with modular components, lightweight model variants (YOLOv8n, SORT), and
+streaming-compatible data flow — local hardware constraints of the Microsoft
+Surface Pro 7 necessitate asynchronous (offline batch) processing for this
+validation phase. The real-time claim pertains to the architectural capability
+of the pipeline design, not to the throughput achieved on the development
+hardware. Deployment on a dedicated edge device (e.g., NVIDIA Jetson Nano)
+is identified as a direct extension of this work.
+
+Block D evaluation scope note:
+Days 13–16 use AI City Track 4 anomaly events only (positive-only benchmark).
+All loaded events are confirmed positive anomalies defined by
+anomaly_start_frame / anomaly_end_frame annotations from AI City Track 4.
+False Alarm Rate (FAR), Precision, Recall (in the TP/TN/FP/FN sense), and
+full F1 computation are deferred to Day 17, which introduces normal AI City
+clips as the negative reference set.
+
+Block D Days 13–16 report:
+  — event-level detection coverage (events_detected / total_events)
+  — per-method anomalous_ratio (fraction of trajectory windows flagged)
+The term "detection coverage" is used in preference to "recall" because
+the traditional recall definition requires a confirmed negative class,
+which is not available until Day 17.
