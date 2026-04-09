@@ -34,6 +34,7 @@ models/*
 *.pth
 *.pkl
 !models/minmax_scaler.pkl
+!logs/block_c/ocsvm_trained_best.pkl
 
 # -----------------------------------------------
 # CACHE, LOGS, RUNS — generated at runtime
