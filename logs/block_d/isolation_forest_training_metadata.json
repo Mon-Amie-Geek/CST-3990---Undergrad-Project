@@ -1,0 +1,30 @@
+{
+  "training_source_files": [
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20011_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20012_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20032_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20034_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20035_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20051_features_scaled.csv",
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20052_features_scaled.csv"
+  ],
+  "feature_columns": [
+    "vel_px_sec",
+    "vel_px_sec_smooth"
+  ],
+  "total_rows_used": 60428,
+  "rows_per_file": {
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20011_features_scaled.csv": 7737,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20012_features_scaled.csv": 8140,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20032_features_scaled.csv": 2127,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20034_features_scaled.csv": 11601,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20035_features_scaled.csv": 13800,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20051_features_scaled.csv": 8652,
+    "/content/CST-3990---Undergrad-Project/logs/block_c/MVI_20052_features_scaled.csv": 8371
+  },
+  "interpolated_rows_excluded": 793,
+  "seed": 42,
+  "n_estimators": 100,
+  "contamination": "auto",
+  "fit_timestamp": "2026-04-09T16:24:55.661216+00:00"
+}

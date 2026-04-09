@@ -1,0 +1,35 @@
+{
+  "scaler_path": "/content/CST-3990---Undergrad-Project/models/minmax_scaler.pkl",
+  "ocsvm_model_path": "/content/CST-3990---Undergrad-Project/logs/block_c/ocsvm_trained_best.pkl",
+  "isolation_forest_model_path": "/content/CST-3990---Undergrad-Project/logs/block_d/isolation_forest_f2_train_normal.pkl",
+  "isolation_forest_training_metadata_path": "/content/CST-3990---Undergrad-Project/logs/block_d/isolation_forest_training_metadata.json",
+  "feature_columns": [
+    "vel_px_sec",
+    "vel_px_sec_smooth"
+  ],
+  "aggregation_rule": "event_pred = 1 if anomalous_count >= 1 else 0",
+  "valid_sample_definition": "survives fragment filter + interpolation gap-fill + warmup strip",
+  "event_schema_assumption": "all loaded events are positive anomaly events (gt_label=1)",
+  "evaluation_scope": "positive-only benchmark \u2014 FAR/Precision/F1 deferred",
+  "events_total": 10,
+  "per_method_evaluable": {
+    "Rule-Based (Z-score)": 10,
+    "Rule-Based (IQR)": 10,
+    "OC-SVM": 10,
+    "Isolation Forest": 10
+  },
+  "per_method_skipped": {
+    "Rule-Based (Z-score)": 0,
+    "Rule-Based (IQR)": 0,
+    "OC-SVM": 0,
+    "Isolation Forest": 0
+  },
+  "ocsvm_aborted": false,
+  "ocsvm_abort_reason": "",
+  "blank_metrics_note": {
+    "FAR": "deferred: no normal clips evaluated in Day 14",
+    "Precision": "not computable: no negative events in Day 14 scope",
+    "F1": "not computable: no negative events in Day 14 scope",
+    "Specificity": "not computable: no negative events in Day 14 scope"
+  }
+}
