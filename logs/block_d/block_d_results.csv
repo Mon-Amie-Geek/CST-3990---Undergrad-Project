@@ -1,0 +1,5 @@
+Method,Dataset,Event_Type,Precision,Recall,F1,FAR (normal clips)
+Rule-Based (Z-score),AI City Track 4,anomaly,N/A,N/A,N/A,TBD
+Rule-Based (IQR),AI City Track 4,anomaly,N/A,N/A,N/A,TBD
+OC-SVM,AI City Track 4,anomaly,—,—,—,TBD
+Isolation Forest,AI City Track 4,anomaly,—,—,—,TBD
