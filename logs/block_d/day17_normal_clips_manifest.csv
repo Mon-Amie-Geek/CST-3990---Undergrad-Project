@@ -1,2 +1,11 @@
 clip_path,clip_filename,fps,total_frames,clip_duration_sec,source_note,annotation_coverage_note,readable
-,,,,,NONE_FOUND,NONE_FOUND,False
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/1.mp4,1.mp4,30.0,26821,894.03,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/11.mp4,11.mp4,30.0,26658,888.6,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/14.mp4,14.mp4,30.0,26560,885.33,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/2.mp4,2.mp4,30.0,26820,894.0,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/33.mp4,33.mp4,30.0,26820,894.0,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/35.mp4,35.mp4,30.0,26646,888.2,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/49.mp4,49.mp4,30.0,26820,894.0,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/51.mp4,51.mp4,30.0,26739,891.3,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/63.mp4,63.mp4,30.0,25613,853.77,labelled_normal_in_dataset,explicitly_labelled_normal,True
+/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/9.mp4,9.mp4,30.0,26628,887.6,labelled_normal_in_dataset,explicitly_labelled_normal,True

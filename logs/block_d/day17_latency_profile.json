@@ -1,0 +1,59 @@
+{
+  "profiling_clip": "/content/drive/MyDrive/CST3990/datasets/ai_city/AIC21-Track4-Anomaly-Detection/aic21-track4-train-data/1.mp4",
+  "detection_source_for_profiling": "cache",
+  "frames_measured": 390,
+  "passes": 3,
+  "warmup_frames": 30,
+  "rendering_disabled": true,
+  "stages": {
+    "decode": {
+      "mean_ms": 0.909,
+      "p50_ms": 0.61,
+      "p95_ms": 2.774,
+      "min_ms": 0.401,
+      "max_ms": 8.584
+    },
+    "detect": {
+      "mean_ms": 0.006,
+      "p50_ms": 0.005,
+      "p95_ms": 0.007,
+      "min_ms": 0.004,
+      "max_ms": 0.031
+    },
+    "track": {
+      "mean_ms": 2.917,
+      "p50_ms": 2.521,
+      "p95_ms": 6.423,
+      "min_ms": 1.352,
+      "max_ms": 12.0
+    },
+    "feature": {
+      "mean_ms": 0.056,
+      "p50_ms": 0.051,
+      "p95_ms": 0.094,
+      "min_ms": 0.024,
+      "max_ms": 0.192
+    },
+    "anomaly": {
+      "mean_ms": 43.48,
+      "p50_ms": 31.733,
+      "p95_ms": 109.632,
+      "min_ms": 23.578,
+      "max_ms": 190.531
+    },
+    "total": {
+      "mean_ms": 47.371,
+      "p50_ms": 35.047,
+      "p95_ms": 121.453,
+      "min_ms": 26.137,
+      "max_ms": 201.132
+    }
+  },
+  "end_to_end_fps": 21.11,
+  "hardware": {
+    "cpu_pct_during_profiling": 52.0,
+    "ram_used_gb": 2.07,
+    "ram_available_gb": 10.27
+  },
+  "measurement_caveats": "Timings are hardware- and backend-specific indicative measurements on Microsoft Surface Pro 7 in offline batch mode (Fix F29). They are not universal system guarantees. Python/OpenCV timing in Colab-like environments is subject to runtime variance. Single-clip benchmark; results may not generalise to all clip durations or content. If detection cache was unavailable, detect-stage timing reflects on-the-fly inference cost."
+}

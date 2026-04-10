@@ -1,51 +1,51 @@
 {
   "day": 17,
-  "timestamp": "2026-04-10T00:20:32.898920+00:00",
+  "timestamp": "2026-04-10T08:31:28.618793+00:00",
   "far_threshold_used": 0.1,
   "metric_definitions": {
     "anomalous_ratio": "Fraction of windows flagged on ANOMALY clips (Days 13\u201316). Not recomputed here.",
     "FAR": "Fraction of windows flagged on NORMAL clips (Day 17). Different clip population."
   },
   "normal_clips": {
-    "clips_discovered": 1,
-    "clips_readable": 0,
-    "clips_evaluated": 3,
+    "clips_discovered": 10,
+    "clips_readable": 10,
+    "clips_evaluated": 10,
     "clips_skipped": 0,
     "annotation_coverage_caveat": "Not_in_events_json clips are assumed normal but not confirmed. See thesis \u00a73.8.",
     "manifest_written_to": "logs/block_d/day17_normal_clips_manifest.csv"
   },
   "far_gate": {
     "isolation_forest": {
-      "mean_far": 0.0417,
-      "std_far": 0.0,
-      "max_far": 0.0417,
-      "clips_evaluated": 3,
-      "gate_passed": true,
-      "gate_note": "PASSED"
+      "mean_far": 0.3354,
+      "std_far": 0.3434,
+      "max_far": 0.9565,
+      "clips_evaluated": 10,
+      "gate_passed": false,
+      "gate_note": "FLAGGED: mean_FAR=0.3354 >= threshold=0.1. Results reportable but annotated per Fix F14."
     },
     "ocsvm": {
-      "mean_far": 0.0417,
-      "std_far": 0.0,
-      "max_far": 0.0417,
-      "clips_evaluated": 3,
+      "mean_far": 0.0283,
+      "std_far": 0.051,
+      "max_far": 0.1511,
+      "clips_evaluated": 10,
       "gate_passed": true,
       "gate_note": "PASSED"
     },
     "rule_based": {
-      "mean_far": 0.0417,
-      "std_far": 0.0,
-      "max_far": 0.0417,
-      "clips_evaluated": 3,
+      "mean_far": 0.035,
+      "std_far": 0.0087,
+      "max_far": 0.046,
+      "clips_evaluated": 10,
       "gate_passed": true,
       "gate_note": "PASSED"
     }
   },
-  "all_methods_passed": true,
+  "all_methods_passed": false,
   "rule_based_design_note": "rule_based uses clip-local z-score; FAR is clip-variance-dependent. See thesis \u00a74.",
   "latency_profiling": {
-    "end_to_end_fps": 23.15,
-    "total_p50_ms": 42.1,
-    "total_p95_ms": 55.0,
+    "end_to_end_fps": 21.11,
+    "total_p50_ms": 35.047,
+    "total_p95_ms": 121.453,
     "detection_source_for_profiling": "cache",
     "single_clip_caveat": "Single-clip benchmark; may not generalise. Hardware-specific. See measurement_caveats.",
     "report_written_to": "logs/block_d/day17_latency_profile.json"
@@ -53,18 +53,19 @@
   "complete_results_table": {
     "written_to": "logs/block_d/block_d_complete_results.csv",
     "methods_with_far_gate_passed": [
-      "isolation_forest",
       "ocsvm",
       "rule_based"
     ],
-    "methods_with_far_gate_flagged": []
+    "methods_with_far_gate_flagged": [
+      "isolation_forest"
+    ]
   },
-  "config_blockD_updated": false,
-  "day17_exit_criteria_met": false,
+  "config_blockD_updated": true,
+  "day17_exit_criteria_met": true,
   "exit_criteria_detail": {
     "clips_evaluated_ge_3": true,
     "complete_table_written": true,
     "latency_profile_written": true,
-    "config_blockD_updated": false
+    "config_blockD_updated": true
   }
 }

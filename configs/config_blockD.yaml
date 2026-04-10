@@ -30,3 +30,20 @@ ai_city_video_dir: data/ai_city/
 block_d_completed: true
 day16_validated: true
 day16_timestamp: '2026-04-09T22:29:35.110456+00:00'
+day17_far_validated: false
+day17_far_gate_results:
+  isolation_forest:
+    mean_far: 0.3354
+    std_far: 0.3434
+    gate_passed: false
+  ocsvm:
+    mean_far: 0.0283
+    std_far: 0.051
+    gate_passed: true
+  rule_based:
+    mean_far: 0.035
+    std_far: 0.0087
+    gate_passed: true
+day17_timestamp: '2026-04-10T08:31:28.608826+00:00'
+day17_far_validation_note: One or more methods exceeded FAR threshold. Results are
+  reportable but flagged per Fix F14. See day17_report.json.

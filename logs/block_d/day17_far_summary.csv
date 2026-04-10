@@ -1,4 +1,4 @@
 method,mean_far,std_far,max_far,clips_evaluated,gate_passed,gate_note
-isolation_forest,0.0417,0.0,0.0417,3,True,PASSED
-ocsvm,0.0417,0.0,0.0417,3,True,PASSED
-rule_based,0.0417,0.0,0.0417,3,True,PASSED
+isolation_forest,0.3354,0.3434,0.9565,10,False,FLAGGED: mean_FAR=0.3354 >= threshold=0.1. Results reportable but annotated per Fix F14.
+ocsvm,0.0283,0.051,0.1511,10,True,PASSED
+rule_based,0.035,0.0087,0.046,10,True,PASSED
