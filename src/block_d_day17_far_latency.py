@@ -344,6 +344,47 @@ def discover_normal_clips(cfg: dict) -> pd.DataFrame:
     # ── Walk AI City root ──────────────────────────────────────────────────────
     rows: list[dict] = []
 
+    def append_clip_row(
+        full_path: str,
+        source_note: str,
+        annotation_coverage_note: str,
+    ) -> None:
+        """
+        Append one candidate normal clip row to the manifest.
+
+        normal_clips.txt may list files outside ai_city_root (for example on
+        Google Drive). Those paths must be evaluated directly rather than only
+        being considered during the ai_city_root os.walk().
+        """
+        fname = os.path.basename(full_path)
+        cap = cv2.VideoCapture(full_path)
+        readable = cap.isOpened()
+        fps_val = None
+        total_frames = None
+        clip_duration = None
+
+        if readable:
+            fps_val = cap.get(cv2.CAP_PROP_FPS)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            if fps_val and fps_val > 0:
+                clip_duration = round(total_frames / fps_val, 2)
+            else:
+                readable = False
+        cap.release()
+
+        rows.append(
+            {
+                "clip_path":               full_path,
+                "clip_filename":           fname,
+                "fps":                     fps_val,
+                "total_frames":            total_frames,
+                "clip_duration_sec":       clip_duration,
+                "source_note":             source_note,
+                "annotation_coverage_note": annotation_coverage_note,
+                "readable":                readable,
+            }
+        )
+
     # Priority 1: explicit normal/ subdirectory or normal_clips.txt
     normal_txt = os.path.join(ai_city_root, "normal_clips.txt")
     labelled_normal_paths: set[str] = set()
@@ -355,8 +396,21 @@ def discover_normal_clips(cfg: dict) -> pd.DataFrame:
                 if p and os.path.exists(p):
                     labelled_normal_paths.add(os.path.abspath(p))
 
-    # Walk all video files
     visited: set[str] = set()
+
+    # Priority 1a: explicit paths from normal_clips.txt, including paths
+    # outside ai_city_root.
+    for full_path in sorted(labelled_normal_paths):
+        if full_path in visited:
+            continue
+        visited.add(full_path)
+        append_clip_row(
+            full_path=full_path,
+            source_note="labelled_normal_in_dataset",
+            annotation_coverage_note="explicitly_labelled_normal",
+        )
+
+    # Walk all video files
     for root, dirs, files in os.walk(ai_city_root):
         # Skip hidden directories
         dirs[:] = [d for d in dirs if not d.startswith(".")]
@@ -387,33 +441,10 @@ def discover_normal_clips(cfg: dict) -> pd.DataFrame:
                 # File is an anomaly clip — skip
                 continue
 
-            # ── Readability check ──────────────────────────────────────────────
-            cap = cv2.VideoCapture(full_path)
-            readable = cap.isOpened()
-            fps_val        = None
-            total_frames   = None
-            clip_duration  = None
-
-            if readable:
-                fps_val      = cap.get(cv2.CAP_PROP_FPS)
-                total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                if fps_val and fps_val > 0:
-                    clip_duration = round(total_frames / fps_val, 2)
-                else:
-                    readable = False  # invalid FPS → not usable
-            cap.release()
-
-            rows.append(
-                {
-                    "clip_path":               full_path,
-                    "clip_filename":           fname,
-                    "fps":                     fps_val,
-                    "total_frames":            total_frames,
-                    "clip_duration_sec":       clip_duration,
-                    "source_note":             source_note,
-                    "annotation_coverage_note": annotation_coverage_note,
-                    "readable":                readable,
-                }
+            append_clip_row(
+                full_path=full_path,
+                source_note=source_note,
+                annotation_coverage_note=annotation_coverage_note,
             )
 
     if not rows:
