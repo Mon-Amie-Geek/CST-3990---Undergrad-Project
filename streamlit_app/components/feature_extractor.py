@@ -120,35 +120,33 @@ class FeatureExtractor:
         """
         Compute mean speed across active tracks in px/sec.
         Fix F07: Always pixels per second, never pixels per frame.
+        Bug fix: history["speeds"] now records the individual track's own speed,
+        not a running cross-track mean (which was corrupting per-track speed labels).
         """
         speeds = []
-        
+
         for track_id, history in self.track_history.items():
             centroids = np.array(history["centroids"])
-            frames = np.array(history["frame_indices"])
-            
+            frames    = np.array(history["frame_indices"])
+
             if len(centroids) < 2:
                 continue
-            
-            # Only use recent frames
+
+            # Skip tracks that haven't been seen recently
             if frames[-1] < frame_idx - self.speed_window_frames:
                 continue
-            
-            # Compute speed in pixels per second
-            # Use a small window for smoother estimates
-            if len(centroids) >= 2:
-                delta_pixels = np.linalg.norm(centroids[-1] - centroids[-2])
-                delta_frames = frames[-1] - frames[-2]
-                
-                if delta_frames > 0:
-                    speed_px_sec = delta_pixels * self.fps
-                    speeds.append(speed_px_sec)
-            
-            history["speeds"].append(
-                sum(speeds) / len(speeds) if speeds else 0.0
-            )
-        
-        return np.mean(speeds) if speeds else 0.0
+
+            delta_pixels = np.linalg.norm(centroids[-1] - centroids[-2])
+            delta_frames = int(frames[-1] - frames[-2])
+
+            if delta_frames > 0:
+                # pixels per second for THIS track
+                speed_px_sec = delta_pixels * self.fps
+                speeds.append(speed_px_sec)
+                # Record per-track speed so the Pipeline page can display individual labels
+                history["speeds"].append(speed_px_sec)
+
+        return float(np.mean(speeds)) if speeds else 0.0
     
     def _compute_min_distance(self, tracks):
         """

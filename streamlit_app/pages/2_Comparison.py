@@ -499,37 +499,144 @@ else:
 st.markdown("---")
 
 # =============================================================================
-# BLOCK D — ANOMALY DETECTION METHOD COMPARISON (pending)
+# BLOCK D — ANOMALY DETECTION METHOD COMPARISON (Days 15–17, complete)
 # =============================================================================
 st.header("Block D — Anomaly Detection Method Comparison")
 
-st.warning("""
-**Block D evaluation is pending.** Results will be populated after evaluation on the AI City Track 4
-dataset (stall / crash ground truth annotations).
+_BD_DIR     = os.path.join(_LOGS_DIR, "block_d")
+_bd_results = os.path.join(_BD_DIR, "block_d_complete_results.csv")
+_bd_events  = os.path.join(_BD_DIR, "block_d_event_predictions.csv")
+_bd_far_sum = os.path.join(_BD_DIR, "day17_far_summary.csv")
+_bd_latency = os.path.join(_BD_DIR, "day17_latency_profile.json")
+_bd_day18   = os.path.join(_BD_DIR, "day18_report.json")
 
-Config frozen on 2026-04-07:
-- Detector: `yolov8n` | Tracker: `sort` | Feature set: `F2_only`
-- Dataset: AI City Track 4 | FAR threshold: 0.10 | seed: 42
-""")
+if os.path.exists(_bd_results):
+    try:
+        df_d_main = pd.read_csv(_bd_results)
 
-anomaly_data = {
-    "Method":               ["Rule-Based (Z-score)", "One-Class SVM", "Isolation Forest"],
-    "Precision":            ["—", "—", "—"],
-    "Recall":               ["—", "—", "—"],
-    "F1 Score":             ["—", "—", "—"],
-    "False Alarm Rate (%)": ["—", "—", "—"],
-    "Status":               ["Pending", "Pending", "Pending"],
-}
-df_d = pd.DataFrame(anomaly_data)
-st.dataframe(df_d, use_container_width=True)
+        st.success(
+            "**Block D complete (Days 15–17)** — AI City Track 4 evaluation "
+            "| FAR gate threshold = 0.10 | Detector: yolov8n | Tracker: sort | Features: F2_only"
+        )
 
-st.caption("""
-- **Precision:** TP / (TP + FP) on AI City Track 4 anomaly events
-- **Recall:** TP / (TP + FN) on AI City Track 4 anomaly events
-- **F1 Score:** Harmonic mean of Precision and Recall
-- **False Alarm Rate:** % of normal frames flagged as anomalous (target ≤ 10% per config_blockD.yaml)
-- OC-SVM trained on UA-DETRAC normal-only training split (ua_detrac_train_normal_only)
-""")
+        # ── Event detection coverage ─────────────────────────────────────────
+        st.subheader("Event Detection Coverage (AI City Track 4)")
+        _col_map = {
+            "method":                   "Method",
+            "total_events":             "Total Events",
+            "events_detected":          "Events Detected",
+            "detection_coverage_pct":   "Coverage (%)",
+            "mean_far":                 "Mean FAR",
+            "std_far":                  "Std FAR",
+            "max_far":                  "Max FAR",
+            "far_gate_passed":          "FAR Gate (< 0.10)",
+            "notes":                    "Notes",
+        }
+        _disp_cols = [c for c in _col_map if c in df_d_main.columns]
+        df_d_disp = df_d_main[_disp_cols].rename(columns=_col_map)
+        st.dataframe(df_d_disp, use_container_width=True)
+
+        # ── FAR bar chart ─────────────────────────────────────────────────────
+        if "method" in df_d_main.columns and "mean_far" in df_d_main.columns:
+            _gate_colors = [
+                "#2ca02c" if str(r["far_gate_passed"]).strip() == "True" else "#d62728"
+                for _, r in df_d_main.iterrows()
+            ]
+            fig_d = go.Figure()
+            fig_d.add_trace(go.Bar(
+                x=df_d_main["method"],
+                y=df_d_main["mean_far"].astype(float),
+                error_y=dict(type="data", array=df_d_main["std_far"].astype(float)),
+                marker_color=_gate_colors,
+                text=[f"{v:.4f}" for v in df_d_main["mean_far"].astype(float)],
+                textposition="outside",
+                name="Mean FAR",
+            ))
+            fig_d.add_hline(
+                y=0.10, line_dash="dash", line_color="crimson",
+                annotation_text="FAR gate threshold = 0.10",
+                annotation_position="top left",
+            )
+            fig_d.update_layout(
+                title="Block D — Mean False Alarm Rate per Method (10 normal clips, AI City Track 4)",
+                xaxis_title="Anomaly Method",
+                yaxis=dict(title="Mean FAR", range=[0, min(1.05, df_d_main["max_far"].max() * 1.2)]),
+                height=430,
+                showlegend=False,
+            )
+            st.plotly_chart(fig_d, use_container_width=True)
+            st.caption(
+                "Green bars = FAR gate passed (mean FAR < 0.10). "
+                "Red bar = Isolation Forest flagged (mean FAR = 0.3354 ≥ threshold — "
+                "results reportable but annotated per Fix F14). "
+                "Error bars = ±1 std FAR across 10 normal clips."
+            )
+
+        # ── FAR summary per clip ─────────────────────────────────────────────
+        if os.path.exists(_bd_far_sum):
+            with st.expander("FAR Summary per Method (day17_far_summary.csv)", expanded=False):
+                st.dataframe(pd.read_csv(_bd_far_sum), use_container_width=True)
+
+        # ── Latency profile ──────────────────────────────────────────────────
+        if os.path.exists(_bd_latency):
+            with st.expander("Latency Profile (Day 17 — indicative, offline batch)", expanded=False):
+                with open(_bd_latency, encoding="utf-8") as _fh:
+                    _lat = json.load(_fh)
+                _stages = _lat.get("stages", {})
+                col_l1, col_l2 = st.columns([1, 2])
+                with col_l1:
+                    st.metric("End-to-end FPS", f"{_lat.get('end_to_end_fps', '—')} fps")
+                    st.metric("Total mean ms", _stages.get("total", {}).get("mean_ms", "—"))
+                    st.metric("Total p95 ms",  _stages.get("total", {}).get("p95_ms",  "—"))
+                    st.metric("Bottleneck",     "anomaly stage")
+                with col_l2:
+                    _lat_rows = [
+                        {"Stage": s,
+                         "mean ms": _stages[s]["mean_ms"],
+                         "p50 ms":  _stages[s]["p50_ms"],
+                         "p95 ms":  _stages[s]["p95_ms"]}
+                        for s in ["decode", "detect", "track", "feature", "anomaly", "total"]
+                        if s in _stages
+                    ]
+                    st.dataframe(pd.DataFrame(_lat_rows), use_container_width=True)
+                st.caption(_lat.get("measurement_caveats", ""))
+
+        # ── Day 18 statistical tests ─────────────────────────────────────────
+        if os.path.exists(_bd_day18):
+            with st.expander("Day 18 — Statistical Tests", expanded=False):
+                with open(_bd_day18, encoding="utf-8") as _fh:
+                    _d18 = json.load(_fh)
+                _tests = _d18.get("statistical_tests", {})
+                _w = _tests.get("test1_wilcoxon",  {})
+                _m = _tests.get("test2_mcnemar",   {})
+                _p = _tests.get("test3_pearson_r", {})
+                _summary_rows = []
+                for _t, _label in [(_w, "Wilcoxon"), (_m, "McNemar (exact)"), (_p, "Pearson r")]:
+                    if _t:
+                        _summary_rows.append({
+                            "Test":          _label,
+                            "Comparison":    _t.get("hypothesis", ""),
+                            "n":             _t.get("n_pairs") or _t.get("n_clips"),
+                            "p-value":       round(float(_t.get("p_value", 1.0)), 4),
+                            "Significant":   "✓" if _t.get("significant_05") else "✗",
+                        })
+                if _summary_rows:
+                    st.dataframe(pd.DataFrame(_summary_rows), use_container_width=True)
+
+        st.caption(
+            "All 10 anomaly events detected by all methods (event_pred=1, coverage=100%). "
+            "Key differentiator is FAR (false alarm rate on normal clips). "
+            "OC-SVM (mean_FAR=0.0283) and rule_based (mean_FAR=0.035) pass the gate. "
+            "Isolation Forest fails (mean_FAR=0.3354) — annotated Fix F14."
+        )
+
+    except Exception as _err:
+        st.warning(f"Could not display Block D results: {_err}")
+else:
+    st.info(
+        "Block D results not found at `logs/block_d/block_d_complete_results.csv`. "
+        "Run `block_d_day17_far_latency.py` (Day 17) to generate results."
+    )
 
 st.markdown("---")
 
@@ -565,7 +672,7 @@ with col2:
         _best_fs_for_summary if _block_c_day12_done else "F2_only",
         f"AUROC = {_best_auroc_for_summary:.4f}" if _block_c_day12_done else "AUROC = 0.9935",
     )
-    st.metric("Best Anomaly Method", "Pending (Block D)", "—")
+    st.metric("Best Anomaly Method", "OC-SVM", "mean FAR = 0.0283 ✅ gate passed")
 
 with col3:
     st.metric("Scaler", "MinMaxScaler", "Fitted on UA-DETRAC train (normal only)")
@@ -574,7 +681,11 @@ with col3:
 st.info("""
 **Key Insight (Block C):** F2_only (speed proxy) achieves AUROC = 0.9935 — far above
 F1 (density/flow, AUROC = 0.4724), F2+F3 (AUROC = 0.641), and All Features (AUROC = 0.7312).
-Adding F3 interaction features reduces separability on UA-DETRAC normal-traffic validation,
-likely because proximity metrics carry little discriminative signal in a normal-traffic distribution.
-Block D will evaluate on AI City Track 4 where true anomalies (stalls, crashes) are present.
+Adding F3 interaction features reduces separability on UA-DETRAC normal-traffic validation.
+
+**Key Insight (Block D):** All three methods detect 100% of AI City Track 4 anomaly events.
+The discriminator is FAR: OC-SVM (0.0283) and rule_based (0.035) pass the gate;
+Isolation Forest (0.3354) fails — annotated Fix F14. Latency: 21.11 FPS end-to-end,
+bottleneck is the anomaly stage (43.48 ms mean). McNemar test (p=0.031) confirms
+IF vs rule_based gate-failure difference is statistically significant.
 """)

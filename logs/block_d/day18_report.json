@@ -1,0 +1,407 @@
+{
+  "day": 18,
+  "title": "Results Consolidation & Statistical Tests",
+  "student": "MANJOO Ameera Najla | M01014463",
+  "project": "CST3990 Undergraduate Individual Project",
+  "statistical_tests": {
+    "test1_wilcoxon": {
+      "test": "Wilcoxon signed-rank",
+      "hypothesis": "H0: median(FAR_rule_based - FAR_ocsvm) = 0",
+      "alternative": "two-sided",
+      "n_pairs": 10,
+      "clips": [
+        "1.mp4",
+        "11.mp4",
+        "14.mp4",
+        "2.mp4",
+        "33.mp4",
+        "35.mp4",
+        "49.mp4",
+        "51.mp4",
+        "63.mp4",
+        "9.mp4"
+      ],
+      "far_rule_based": [
+        0.0445341104386161,
+        0.0311878401200975,
+        0.01707808755848,
+        0.0290217756695178,
+        0.0406983250643488,
+        0.0292118799984981,
+        0.0404462303055937,
+        0.0347780212645077,
+        0.0460494425593795,
+        0.0374924789410349
+      ],
+      "far_ocsvm": [
+        0.0013823507434805,
+        0.0,
+        0.000608573276026,
+        0.0070219997758936,
+        0.0001492147573395,
+        0.0,
+        0.1510521306968383,
+        0.0380650921191461,
+        0.0843431895298109,
+        0.0001128158844765
+      ],
+      "differences": [
+        0.0431517596951356,
+        0.0311878401200975,
+        0.016469514282454002,
+        0.021999775893624198,
+        0.0405491103070093,
+        0.0292118799984981,
+        -0.11060590039124459,
+        -0.003287070854638398,
+        -0.038293746970431405,
+        0.0373796630565584
+      ],
+      "median_rb": 0.0361352501027713,
+      "median_ocsvm": 0.00099546200975325,
+      "statistic": 18.0,
+      "p_value": 0.375,
+      "significant_05": false,
+      "interpretation": "Not significant: no statistical difference in FAR distributions between rule_based and OC-SVM (p \u2265 0.05).",
+      "note": "Test adapted from original plan (Wilcoxon on per-sequence mAP_yolo vs mAP_mobilenet) because Block A provides only aggregate mAP, not per-sequence scores. Per-clip FAR (n=10) is the richest comparable paired dataset available."
+    },
+    "test2_mcnemar": {
+      "test": "McNemar (exact)",
+      "hypothesis": "H0: P(IF-fail, RB-pass) = P(IF-pass, RB-fail)",
+      "alternative": "two-sided",
+      "threshold": 0.1,
+      "n_clips": 10,
+      "contingency_table": {
+        "layout": "rows=IF_outcome, cols=RB_outcome (0=pass, 1=fail)",
+        "both_pass_a": 4,
+        "if_fail_rb_pass_b": 6,
+        "if_pass_rb_fail_c": 0,
+        "both_fail_d": 0
+      },
+      "discordant_b": 6,
+      "discordant_c": 0,
+      "statistic": 0.0,
+      "p_value": 0.03125,
+      "significant_05": true,
+      "per_clip_detail": [
+        {
+          "clip": "1.mp4",
+          "rb_far": 0.0445341104386161,
+          "if_far": 0.1596054696256444,
+          "rb_fail": false,
+          "if_fail": true
+        },
+        {
+          "clip": "11.mp4",
+          "rb_far": 0.0311878401200975,
+          "if_far": 0.0084068305498217,
+          "rb_fail": false,
+          "if_fail": false
+        },
+        {
+          "clip": "14.mp4",
+          "rb_far": 0.01707808755848,
+          "if_far": 0.009661100756913,
+          "rb_fail": false,
+          "if_fail": false
+        },
+        {
+          "clip": "2.mp4",
+          "rb_far": 0.0290217756695178,
+          "if_far": 0.9564860120270422,
+          "rb_fail": false,
+          "if_fail": true
+        },
+        {
+          "clip": "33.mp4",
+          "rb_far": 0.0406983250643488,
+          "if_far": 0.0475995075913007,
+          "rb_fail": false,
+          "if_fail": false
+        },
+        {
+          "clip": "35.mp4",
+          "rb_far": 0.0292118799984981,
+          "if_far": 0.0407389329027897,
+          "rb_fail": false,
+          "if_fail": false
+        },
+        {
+          "clip": "49.mp4",
+          "rb_far": 0.0404462303055937,
+          "if_far": 0.6583483134186316,
+          "rb_fail": false,
+          "if_fail": true
+        },
+        {
+          "clip": "51.mp4",
+          "rb_far": 0.0347780212645077,
+          "if_far": 0.5221978735492249,
+          "rb_fail": false,
+          "if_fail": true
+        },
+        {
+          "clip": "63.mp4",
+          "rb_far": 0.0460494425593795,
+          "if_far": 0.6800775569558895,
+          "rb_fail": false,
+          "if_fail": true
+        },
+        {
+          "clip": "9.mp4",
+          "rb_far": 0.0374924789410349,
+          "if_far": 0.2710965703971119,
+          "rb_fail": false,
+          "if_fail": true
+        }
+      ],
+      "interpretation": "Significant: the FAR-gate outcomes of rule_based and Isolation Forest differ significantly across normal clips (p < 0.05). Isolation Forest fails the gate on clips where rule_based passes, confirming its high FAR.",
+      "note": "Test adapted from original plan (McNemar on per-event F1_rulebased vs F1_ocsvm predictions) because all 10 anomaly events are detected by all methods (event_pred=1 for every event and method), making event-level McNemar degenerate (zero discordant pairs). Per-clip FAR gate (n=10) provides meaningful discordance. Exact test used per recommendation for n<25."
+    },
+    "test3_pearson_r": {
+      "test": "Pearson r",
+      "hypothesis": "H0: rho(pct_clipped, far_value) = 0",
+      "alternative": "two-sided",
+      "n_pairs": 30,
+      "r": 0.298535597708774,
+      "p_value": 0.1090554703308934,
+      "r_squared": 0.08912350309933496,
+      "significant_05": false,
+      "interpretation": "Not significant (r=0.2985, p=0.1091): no linear relationship between domain shift and false alarm rate.",
+      "note": "Test adapted from original plan (Pearson on per-sequence IDSW vs speed_std) because Block B has only 2 test sequences (IDSW data for MVI_20062 and MVI_20063 only), giving n=2 which is statistically useless. pct_clipped\u2192far_value (n=30) tests the same domain-shift \u2192 error-rate hypothesis at adequate sample size."
+    }
+  },
+  "consolidated_results": {
+    "block_a": {
+      "frozen_detector": "yolov8n",
+      "selection_criterion": "mAP@0.5 delta > 0.05 threshold",
+      "detectors": [
+        {
+          "detector": "yolov8n",
+          "mAP": 0.6674,
+          "FPS": 47.2,
+          "precision": 0.7679,
+          "recall": 0.7703,
+          "selected": true
+        },
+        {
+          "detector": "ssd300",
+          "mAP": 0.316,
+          "FPS": 25.6,
+          "precision": 0.2801,
+          "recall": 0.5582,
+          "selected": false
+        }
+      ]
+    },
+    "block_b": {
+      "frozen_tracker": "sort",
+      "selection_criterion": "Primary: highest idf1_mean (identity consistency \u2014 critical for Block C feature quality). Tiebreaker 1: lowest idsw_total. Tiebreaker 2: highest fps_median.",
+      "trackers": [
+        {
+          "rank": 1,
+          "tracker": "sort",
+          "idf1_mean": 0.04117707509212083,
+          "idsw_total": 31,
+          "fps_median": 1129.655,
+          "selected": true
+        },
+        {
+          "rank": 2,
+          "tracker": "deepsort",
+          "idf1_mean": 0.0008,
+          "idsw_total": 0,
+          "fps_median": 1063.68,
+          "selected": false
+        },
+        {
+          "rank": 3,
+          "tracker": "bytetrack",
+          "idf1_mean": 0.00065,
+          "idsw_total": 0,
+          "fps_median": 1231.37,
+          "selected": false
+        }
+      ]
+    },
+    "block_c": {
+      "frozen_feature_set": "F2_only",
+      "selection_criterion": "highest AUROC on OC-SVM validation split",
+      "feature_sets": [
+        {
+          "feature_set": "F1_only",
+          "best_nu": 0.05,
+          "auroc": 0.4724143914117618,
+          "silhouette": -0.0021992247878561
+        },
+        {
+          "feature_set": "F2_only",
+          "best_nu": 0.01,
+          "auroc": 0.993488621603036,
+          "silhouette": 0.9430989171209456
+        },
+        {
+          "feature_set": "F2_F3",
+          "best_nu": 0.01,
+          "auroc": 0.6409891309884623,
+          "silhouette": 0.4709855028471343
+        },
+        {
+          "feature_set": "all_features",
+          "best_nu": 0.01,
+          "auroc": 0.7311917390418461,
+          "silhouette": 0.3676660005142376
+        }
+      ]
+    },
+    "block_d": {
+      "selection_criterion": "lowest mean_FAR with gate_passed=True",
+      "methods": [
+        {
+          "method": "isolation_forest",
+          "total_events": 10,
+          "events_detected": 10,
+          "detection_coverage_pct": 100.0,
+          "anomalous_ratio": 1.0,
+          "mean_anomaly_score": NaN,
+          "mean_far": 0.3354,
+          "std_far": 0.3434,
+          "max_far": 0.9565,
+          "clips_evaluated_for_far": 10,
+          "far_gate_passed": false,
+          "short_window_event_count": 0,
+          "notes": "FAR gate FLAGGED \u2014 results reportable but annotated per Fix F14"
+        },
+        {
+          "method": "ocsvm",
+          "total_events": 10,
+          "events_detected": 10,
+          "detection_coverage_pct": 100.0,
+          "anomalous_ratio": 1.0,
+          "mean_anomaly_score": NaN,
+          "mean_far": 0.0283,
+          "std_far": 0.051,
+          "max_far": 0.1511,
+          "clips_evaluated_for_far": 10,
+          "far_gate_passed": true,
+          "short_window_event_count": 0,
+          "notes": NaN
+        },
+        {
+          "method": "rule_based",
+          "total_events": 10,
+          "events_detected": 10,
+          "detection_coverage_pct": 100.0,
+          "anomalous_ratio": 1.0,
+          "mean_anomaly_score": NaN,
+          "mean_far": 0.035,
+          "std_far": 0.0087,
+          "max_far": 0.046,
+          "clips_evaluated_for_far": 10,
+          "far_gate_passed": true,
+          "short_window_event_count": 0,
+          "notes": NaN
+        }
+      ]
+    },
+    "latency": {
+      "end_to_end_fps": 21.11,
+      "total_mean_ms": 47.371,
+      "total_p50_ms": 35.047,
+      "total_p95_ms": 121.453,
+      "anomaly_mean_ms": 43.48,
+      "bottleneck_stage": "anomaly",
+      "hardware": {
+        "cpu_pct_during_profiling": 52.0,
+        "ram_used_gb": 2.07,
+        "ram_available_gb": 10.27
+      },
+      "caveats": "Timings are hardware- and backend-specific indicative measurements on Microsoft Surface Pro 7 in offline batch mode (Fix F29). They are not universal system guarantees. Python/OpenCV timing in Colab-like environments is subject to runtime variance. Single-clip benchmark; results may not generalise to all clip durations or content. If detection cache was unavailable, detect-stage timing reflects on-the-fly inference cost."
+    }
+  },
+  "failure_cases": [
+    {
+      "id": "F1",
+      "block": "A",
+      "description": "SSD300 mAP@0.5 = 0.316 \u2014 far below the YOLOv8n fine-tuned result of 0.6674. SSD trained on COCO without domain adaptation.",
+      "impact": "Selection criterion triggered: mAP delta = 0.3514 > 0.05 threshold \u2192 YOLOv8n frozen.",
+      "resolution": "YOLOv8n selected and frozen for Blocks B\u2013D."
+    },
+    {
+      "id": "F2",
+      "block": "B",
+      "description": "IDF1 scores are low (SORT: 0.0412) because UA-DETRAC sequences have dense occlusion. DeepSORT/ByteTrack show near-zero IDF1 in this configuration.",
+      "impact": "SORT selected by default as the only tracker with non-trivial IDF1. Low IDF1 implies track fragmentation affects feature quality.",
+      "resolution": "SORT frozen. Feature robustness to fragmentation partially mitigated by MIN_TRACK_LENGTH=15 filter in Block C/D."
+    },
+    {
+      "id": "F3",
+      "block": "C",
+      "description": "F1_only (density/flow features) achieves AUROC = 0.4724, worse than chance. Vehicle count and ROI occupancy are poor discriminators for the anomaly proxy used.",
+      "impact": "F1_only disqualified. F2_only (speed features) achieves AUROC = 0.9935.",
+      "resolution": "F2_only frozen: vel_px_sec, vel_px_sec_smooth."
+    },
+    {
+      "id": "F14",
+      "block": "D",
+      "description": "Isolation Forest FAR gate FAILED: mean_FAR = 0.3354 \u2265 threshold = 0.10. 6 of 10 normal clips exceed the FAR threshold.",
+      "impact": "Isolation Forest cannot be recommended for deployment. Results are reportable but annotated per Fix F14 policy (non-blocking for research reporting).",
+      "resolution": "Results reported with annotation. OC-SVM (mean_FAR=0.0283) and rule_based (mean_FAR=0.0350) both pass the gate."
+    },
+    {
+      "id": "F29",
+      "block": "D (Latency)",
+      "description": "Latency measured in Colab-like offline batch mode, not real-time streaming. Timings are hardware/backend-specific indicative values only.",
+      "impact": "End-to-end FPS=21.11 may not reflect deployment on different hardware or with real-time video streams.",
+      "resolution": "Caveats documented in day17_latency_profile.json and reported in results with explicit scope limitation."
+    },
+    {
+      "id": "STAT-1",
+      "block": "Day 18 (Statistical Tests)",
+      "description": "Wilcoxon test adapted: original plan specified per-sequence mAP_yolo vs mAP_mobilenet. Block A provides only 2 aggregate detector results, not per-sequence breakdowns.",
+      "impact": "Wilcoxon ran on per-clip FAR rule_based vs ocsvm (n=10) instead. Different hypothesis tested.",
+      "resolution": "Adaptation justified: FAR-per-clip is the richest paired dataset (n=10) and directly relevant to Block D evaluation."
+    },
+    {
+      "id": "STAT-2",
+      "block": "Day 18 (Statistical Tests)",
+      "description": "McNemar adapted: original plan specified per-event F1 predictions (rule_based vs ocsvm). All 10 anomaly events are detected by all methods (event_pred=1 always), giving zero discordant pairs \u2014 McNemar is degenerate.",
+      "impact": "McNemar ran on per-clip FAR-gate binary outcomes (rule_based vs isolation_forest), n=10.",
+      "resolution": "6 discordant pairs (IF fails gate, RB passes) \u2014 valid test."
+    },
+    {
+      "id": "STAT-3",
+      "block": "Day 18 (Statistical Tests)",
+      "description": "Pearson r adapted: original plan specified per-sequence IDSW vs speed_std. Block B has IDSW for only 2 test sequences (n=2 is statistically useless).",
+      "impact": "Pearson ran on pct_clipped vs far_value across all 30 method-clip pairs. Same domain-shift\u2192error hypothesis.",
+      "resolution": "n=30 is adequate for Pearson. Tests threat-to-validity directly (domain shift \u2192 elevated FAR)."
+    }
+  ],
+  "threats_to_validity": [
+    {
+      "threat": "Dataset bias",
+      "description": "UA-DETRAC is a Chinese motorway dataset; AI City Track 4 is a US-style intersection dataset. Domain shift (pct_clipped measured per clip) is non-trivial for clips 49, 51, 63.",
+      "mitigation": "Pearson test quantifies FAR inflation from domain shift. pct_clipped documented per clip. Results scoped to these datasets."
+    },
+    {
+      "threat": "Small sample sizes",
+      "description": "n=10 normal clips for Wilcoxon and McNemar. n=30 for Pearson. Power may be insufficient to detect small effects.",
+      "mitigation": "Exact McNemar used (appropriate for n<25). Wilcoxon is non-parametric (robust). Effect sizes reported alongside p-values."
+    },
+    {
+      "threat": "Anomaly ground truth quality",
+      "description": "AI City Track 4 event timestamps may have annotation noise. 10 events only \u2014 insufficient for learning-based detection statistical analysis.",
+      "mitigation": "Event-level analysis is descriptive only. FAR-based statistical tests use the richer normal-clip dataset."
+    },
+    {
+      "threat": "Latency measurement conditions",
+      "description": "Latency profiled on a single normal clip in offline batch mode on a Surface Pro 7. Not representative of edge deployment.",
+      "mitigation": "Fix F29 applied: caveats documented. FPS reported as indicative, not a system guarantee."
+    },
+    {
+      "threat": "OC-SVM threshold sensitivity",
+      "description": "OC-SVM nu=0.01 tuned on UA-DETRAC validation split. Performance on AI City clips may differ from reported AUROC.",
+      "mitigation": "FAR gate validates OC-SVM on AI City normal clips. OC-SVM passes gate (mean_FAR=0.0283)."
+    }
+  ]
+}

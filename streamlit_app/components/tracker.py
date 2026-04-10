@@ -100,9 +100,27 @@ class Tracker:
             return
 
         if self.tracker_name == "deepsort":
-            cfg = self.config["deepsort"]
+            cfg        = self.config["deepsort"]
             models_dir = os.path.join(_REPO_ROOT, "models")
-            self.reid_model, self.reid_device = _load_reid_model(models_dir)
+            reid_path  = os.path.join(models_dir, "osnet_x1_0_veri_776.pth")
+            if not os.path.exists(reid_path):
+                st.error(
+                    "**DeepSORT — ReID model not found.**  \n"
+                    f"Expected: `models/osnet_x1_0_veri_776.pth`  \n"
+                    "Place the VeRi-776 OSNet weights there, or select **SORT** (recommended) "
+                    "or **ByteTrack** instead."
+                )
+                raise FileNotFoundError(
+                    f"DeepSORT VeRi-776 ReID weights not found at: {reid_path}"
+                )
+            try:
+                self.reid_model, self.reid_device = _load_reid_model(models_dir)
+            except Exception as exc:
+                st.error(
+                    f"**DeepSORT — failed to load ReID model:** {exc}  \n"
+                    "Select **SORT** or **ByteTrack** instead."
+                )
+                raise
             self.tracker = DeepSORT(
                 appearance_thresh=cfg["appearance_thresh"],
                 max_age=cfg["max_age"],
@@ -111,7 +129,7 @@ class Tracker:
             )
             return
 
-        raise ValueError(f"Unknown tracker: {self.tracker_name}")
+        raise ValueError(f"Unknown tracker: {self.tracker_name!r}")
 
     def reset(self):
         """Reset tracker state for the next video."""

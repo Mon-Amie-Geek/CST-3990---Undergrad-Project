@@ -32,8 +32,8 @@ st.set_page_config(
 )
 
 # ── Path helpers ──────────────────────────────────────────────────────────────
-_APP_DIR  = os.path.dirname(__file__)                             # streamlit_app/
-_REPO_ROOT = os.path.normpath(os.path.join(_APP_DIR, ".."))      # repo root
+_APP_DIR   = os.path.dirname(__file__)                          # streamlit_app/
+_REPO_ROOT = os.path.normpath(os.path.join(_APP_DIR, ".."))    # repo root
 _LOGS_DIR  = os.path.join(_REPO_ROOT, "logs")
 
 def _load_json(path):
@@ -43,9 +43,35 @@ def _load_json(path):
     except Exception:
         return None
 
-_ba = _load_json(os.path.join(_LOGS_DIR, "block_a_results.json"))
-_bb = _load_json(os.path.join(_LOGS_DIR, "block_b_results.json"))
-_bc_table_path = os.path.join(_LOGS_DIR, "block_c", "block_c_results_table.csv")
+def _load_csv(path):
+    try:
+        import pandas as pd
+        return pd.read_csv(path)
+    except Exception:
+        return None
+
+# ── Block A: logs/block_a/block_a_results.csv ────────────────────────────────
+_ba_df = _load_csv(os.path.join(_LOGS_DIR, "block_a", "block_a_results.csv"))
+
+# ── Block B: logs/block_b/tracker_selection_report.json ──────────────────────
+_bb_raw = _load_json(os.path.join(_LOGS_DIR, "block_b", "tracker_selection_report.json"))
+# Key is "ranked_trackers" (not "trackers")
+_bb = None
+if _bb_raw and "ranked_trackers" in _bb_raw:
+    _bb = {"trackers": _bb_raw["ranked_trackers"],
+           "selected":  _bb_raw.get("selected_tracker", "sort")}
+
+# ── Block C: logs/block_c/block_c_auroc_results.csv ──────────────────────────
+_bc_df = _load_csv(os.path.join(_LOGS_DIR, "block_c", "block_c_auroc_results.csv"))
+
+# ── Block D: logs/block_d/block_d_complete_results.csv ───────────────────────
+_bd_df = _load_csv(os.path.join(_LOGS_DIR, "block_d", "block_d_complete_results.csv"))
+
+# ── Day 18: logs/block_d/day18_report.json ───────────────────────────────────
+_day18 = _load_json(os.path.join(_LOGS_DIR, "block_d", "day18_report.json"))
+
+# ── Latency: logs/block_d/day17_latency_profile.json ─────────────────────────
+_lat = _load_json(os.path.join(_LOGS_DIR, "block_d", "day17_latency_profile.json"))
 
 # ============================================================================
 # HEADER
@@ -73,83 +99,196 @@ col_a, col_b, col_c, col_d = st.columns(4)
 
 # ── Block A ──────────────────────────────────────────────────────────────────
 with col_a:
-    if _ba:
-        _yolo = _ba["detectors"]["yolov8n"]
-        _ssd  = _ba["detectors"]["ssd300"]
+    if _ba_df is not None and not _ba_df.empty:
+        _yolo = _ba_df[_ba_df["detector"] == "yolov8n"].iloc[0]
+        _ssd  = _ba_df[_ba_df["detector"] == "ssd300"].iloc[0]
         st.success("**Block A — Detection ✅**")
         st.markdown(f"""
 | | YOLOv8n | SSD300 |
 |--|--|--|
-| mAP@0.5 | **{_yolo['mAP50']:.4f}** | {_ssd['mAP50']:.4f} |
+| mAP@0.5 | **{_yolo['mAP']:.4f}** | {_ssd['mAP']:.4f} |
 | Precision | {_yolo['precision']:.4f} | {_ssd['precision']:.4f} |
 | Recall | {_yolo['recall']:.4f} | {_ssd['recall']:.4f} |
-| FPS p50 | {_yolo['fps_p50']} | {_ssd['fps_p50']} |
+| FPS | {_yolo['FPS']} | {_ssd['FPS']} |
 """)
-        st.info(f"**Frozen:** `yolov8n` (Day 6)  \nmAP delta = {_yolo['mAP50'] - _ssd['mAP50']:.4f} > 0.05 threshold")
+        _delta = _yolo['mAP'] - _ssd['mAP']
+        st.info(f"**Frozen:** `yolov8n` (Day 6)  \nmAP delta = {_delta:.4f} > 0.05 threshold")
     else:
         st.warning("**Block A — Detection**  \nResults file not found.")
 
 # ── Block B ──────────────────────────────────────────────────────────────────
 with col_b:
     if _bb:
-        _sel_trk = next((t for t in _bb["trackers"] if t.get("selected")), None)
         st.success("**Block B — Tracking ✅**")
         rows_b = []
         for t in _bb["trackers"]:
-            rows_b.append(f"| {'**'+t['tracker'].upper()+'**' if t.get('selected') else t['tracker'].upper()} | {t['idf1_mean']:.4f} | {t['mota_mean']:.4f} | {t['idsw_total']} |")
+            name = t["tracker"].upper()
+            is_sel = t.get("selected", False)
+            label = f"**{name}**" if is_sel else name
+            idf1  = t.get("idf1_mean", 0)
+            idsw  = t.get("idsw_total", "-")
+            fps   = t.get("fps_median", "-")
+            rows_b.append(f"| {label} | {idf1:.4f} | {idsw} | {fps} |")
         st.markdown(
-            "| Tracker | IDF1 | MOTA | IDSW |\n|--|--|--|--|\n" + "\n".join(rows_b)
+            "| Tracker | IDF1 | IDSW | FPS |\n|--|--|--|--|\n" + "\n".join(rows_b)
         )
-        if _sel_trk:
-            st.info(f"**Frozen:** `{_sel_trk['tracker']}` (Day 9)  \nHighest IDF1 = {_sel_trk['idf1_mean']:.4f}")
+        _sel = _bb["selected"]
+        _sel_t = next((t for t in _bb["trackers"] if t.get("selected")), None)
+        if _sel_t:
+            st.info(f"**Frozen:** `{_sel}` (Day 9)  \nIDF1 = {_sel_t['idf1_mean']:.4f}")
     else:
         st.warning("**Block B — Tracking**  \nResults file not found.")
 
 # ── Block C ──────────────────────────────────────────────────────────────────
 with col_c:
-    if os.path.exists(_bc_table_path):
-        try:
-            import pandas as pd
-            _df_c = pd.read_csv(_bc_table_path)
-            _CHECK = chr(10003)
-            _best_row = _df_c[_df_c["Selected"].astype(str).str.strip() == _CHECK]
-            st.success("**Block C — Features ✅**")
-            rows_c = []
-            for _, row in _df_c.iterrows():
-                sel = "**✓**" if str(row["Selected"]).strip() == _CHECK else ""
-                rows_c.append(f"| {sel}{row['Feature Set']} | {row['AUROC']:.4f} | {row['Silhouette']:.4f} |")
-            st.markdown(
-                "| Feature Set | AUROC | Silhouette |\n|--|--|--|\n" + "\n".join(rows_c)
-            )
-            if not _best_row.empty:
-                _bfs = _best_row.iloc[0]
-                st.info(f"**Frozen:** `{_bfs['Feature Set']}` (Day 12)  \nAUROC = {_bfs['AUROC']:.4f} | nu = {_bfs['Best Nu']}")
-        except Exception:
-            st.success("**Block C — Features ✅**")
-            st.write("Results loaded. See Comparison page.")
+    if _bc_df is not None and not _bc_df.empty:
+        st.success("**Block C — Features ✅**")
+        rows_c = []
+        for _, row in _bc_df.iterrows():
+            fs   = row["feature_set"]
+            auroc = row["auroc"]
+            sil   = row["silhouette"]
+            nu    = row["best_nu"]
+            # Highest AUROC is frozen selection
+            is_best = auroc == _bc_df["auroc"].max()
+            label = f"**{fs}**" if is_best else fs
+            rows_c.append(f"| {label} | {auroc:.4f} | {sil:.4f} | {nu} |")
+        st.markdown(
+            "| Feature Set | AUROC | Silhouette | nu |\n|--|--|--|--|\n" + "\n".join(rows_c)
+        )
+        _best_fs = _bc_df.loc[_bc_df["auroc"].idxmax()]
+        st.info(
+            f"**Frozen:** `{_best_fs['feature_set']}` (Day 12)  \n"
+            f"AUROC = {_best_fs['auroc']:.4f} | nu = {_best_fs['best_nu']}"
+        )
     else:
         st.warning("**Block C — Features**  \nResults CSV not found.")
 
 # ── Block D ──────────────────────────────────────────────────────────────────
 with col_d:
-    st.warning("**Block D — Anomaly Detection ⏳**")
-    st.markdown("""
-| Method | Status |
-|--|--|
-| Rule-Based | Pending |
-| OC-SVM | Pending |
-| Isolation Forest | Pending |
-""")
-    st.markdown("""
-**Config frozen (2026-04-07):**
-- Detector: `yolov8n`
-- Tracker: `sort`
-- Features: `F2_only`
-- Dataset: AI City Track 4
-- FAR threshold: 0.10
-""")
+    if _bd_df is not None and not _bd_df.empty:
+        st.success("**Block D — Anomaly Detection ✅**")
+        rows_d = []
+        for _, row in _bd_df.iterrows():
+            meth  = row["method"]
+            cov   = row.get("detection_coverage_pct", 100)
+            mfar  = row["mean_far"]
+            gate  = row["far_gate_passed"]
+            gate_icon = "✅" if str(gate).strip() == "True" else "❌"
+            rows_d.append(f"| {meth} | {cov:.0f}% | {mfar:.4f} | {gate_icon} |")
+        st.markdown(
+            "| Method | Coverage | mean FAR | Gate |\n|--|--|--|--|\n" + "\n".join(rows_d)
+        )
+        st.info(
+            "**Gate threshold:** FAR < 0.10  \n"
+            "`OC-SVM` & `rule_based` pass ✅  \n"
+            "`isolation_forest` flagged ❌ (Fix F14, annotated)"
+        )
+    else:
+        st.warning("**Block D — Anomaly Detection**  \nResults file not found.")
 
 st.markdown("---")
+
+# ============================================================================
+# DAY 18 — STATISTICAL TESTS RESULTS
+# ============================================================================
+st.markdown("### 📊 Day 18 — Statistical Tests")
+
+if _day18:
+    tests = _day18.get("statistical_tests", {})
+
+    col_s1, col_s2, col_s3 = st.columns(3)
+
+    with col_s1:
+        w = tests.get("test1_wilcoxon", {})
+        if w:
+            sig = "✅ Significant" if w.get("significant_05") else "◻ Not significant"
+            st.markdown(f"**Wilcoxon signed-rank**  \n{sig}")
+            st.markdown(f"""
+| | |
+|--|--|
+| Comparison | rule_based vs OC-SVM FAR |
+| n pairs | {w.get('n_pairs', '—')} |
+| W statistic | {w.get('statistic', 0):.4f} |
+| p-value | {w.get('p_value', 0):.4f} |
+| Median RB | {w.get('median_rb', 0):.4f} |
+| Median OCSVM | {w.get('median_ocsvm', 0):.4f} |
+""")
+
+    with col_s2:
+        m = tests.get("test2_mcnemar", {})
+        if m:
+            sig = "✅ Significant" if m.get("significant_05") else "◻ Not significant"
+            st.markdown(f"**McNemar (exact)**  \n{sig}")
+            ct = m.get("contingency_table", {})
+            st.markdown(f"""
+| | |
+|--|--|
+| Comparison | rule_based vs IF gate |
+| n clips | {m.get('n_clips', '—')} |
+| Threshold | {m.get('threshold', 0.10)} |
+| Discordant b | {m.get('discordant_b', '—')} |
+| Discordant c | {m.get('discordant_c', '—')} |
+| p-value | {m.get('p_value', 0):.4f} |
+""")
+
+    with col_s3:
+        p = tests.get("test3_pearson_r", {})
+        if p:
+            sig = "✅ Significant" if p.get("significant_05") else "◻ Not significant"
+            st.markdown(f"**Pearson r**  \n{sig}")
+            st.markdown(f"""
+| | |
+|--|--|
+| Comparison | pct_clipped vs FAR |
+| n pairs | {p.get('n_pairs', '—')} |
+| r | {p.get('r', 0):.4f} |
+| r² | {p.get('r_squared', 0):.4f} |
+| p-value | {p.get('p_value', 0):.4f} |
+""")
+else:
+    st.info(
+        "Day 18 statistical results not yet generated.  \n"
+        "Run `notebooks/day18_results_consolidation.ipynb` to produce `logs/block_d/day18_report.json`."
+    )
+
+st.markdown("---")
+
+# ============================================================================
+# LATENCY PROFILE
+# ============================================================================
+if _lat:
+    st.markdown("### ⚡ Latency Profile (Day 17)")
+    _stages = _lat.get("stages", {})
+    col_l1, col_l2 = st.columns([1, 2])
+    with col_l1:
+        st.metric("End-to-end FPS", f"{_lat.get('end_to_end_fps', '—')} fps")
+        st.metric("Total mean latency", f"{_stages.get('total', {}).get('mean_ms', '—')} ms")
+        st.metric("Total p95 latency", f"{_stages.get('total', {}).get('p95_ms', '—')} ms")
+        st.metric("Bottleneck stage", "anomaly detection")
+    with col_l2:
+        stage_data = {
+            "Stage": ["decode", "detect", "track", "feature", "anomaly", "total"],
+            "mean ms": [
+                _stages.get(s, {}).get("mean_ms", 0)
+                for s in ["decode", "detect", "track", "feature", "anomaly", "total"]
+            ],
+            "p50 ms": [
+                _stages.get(s, {}).get("p50_ms", 0)
+                for s in ["decode", "detect", "track", "feature", "anomaly", "total"]
+            ],
+            "p95 ms": [
+                _stages.get(s, {}).get("p95_ms", 0)
+                for s in ["decode", "detect", "track", "feature", "anomaly", "total"]
+            ],
+        }
+        import pandas as pd
+        st.dataframe(pd.DataFrame(stage_data), use_container_width=True)
+    st.caption(
+        "⚠️ Timings are indicative offline-batch measurements on a Surface Pro 7 (Fix F29). "
+        "Not universal system guarantees."
+    )
+    st.markdown("---")
 
 # ============================================================================
 # PROJECT DESCRIPTION
@@ -168,7 +307,7 @@ after its selection phase:
 | **A** | Detection | YOLOv8n (fine-tuned) vs SSD300 (COCO) | `yolov8n` — mAP@0.5 = 0.6674 |
 | **B** | Tracking | SORT vs DeepSORT vs ByteTrack | `sort` — IDF1 = 0.0412 |
 | **C** | Feature Extraction | F1 (Density/Flow), F2 (Speed), F2+F3, All | `F2_only` — AUROC = 0.9935 |
-| **D** | Anomaly Detection | Rule-Based, OC-SVM, Isolation Forest | *Pending evaluation* |
+| **D** | Anomaly Detection | Rule-Based, OC-SVM, Isolation Forest | `OC-SVM` — mean FAR = 0.0283 ✅ |
 
 **Datasets:**
 - Training / Feature evaluation: **UA-DETRAC** (10 sequences, 25 FPS, MVI_200xx)
@@ -227,7 +366,6 @@ A Comparative Study of Computer Vision Pipeline Components for Real-Time Traffic
 # ============================================================================
 _model_path = os.path.join(_APP_DIR, "models", "best.pt")
 if not os.path.exists(_model_path):
-    # Also check repo-root models/
     _model_path_root = os.path.join(_REPO_ROOT, "models", "best.pt")
     if not os.path.exists(_model_path_root):
         st.warning("""

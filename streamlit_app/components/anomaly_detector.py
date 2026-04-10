@@ -41,16 +41,34 @@ def _try_load_pretrained():
     """
     Attempt to load the Block C pre-trained OC-SVM and MinMaxScaler.
     Returns (ocsvm, scaler) or (None, None) if files are not available.
+
+    The OC-SVM pkl is saved as a dict with keys:
+        'model'            → OneClassSVM instance
+        'feature_columns'  → ['vel_px_sec', 'vel_px_sec_smooth']
+        'best_nu'          → 0.01
+        'auroc'            → 0.9935
+        ...
+    We extract ocsvm = d['model'] so that .predict()/.decision_function() work.
     """
     try:
+        import warnings
         import joblib
-        if os.path.exists(_OCSVM_PKL) and os.path.exists(_SCALER_PKL):
-            ocsvm  = joblib.load(_OCSVM_PKL)
+        if not (os.path.exists(_OCSVM_PKL) and os.path.exists(_SCALER_PKL)):
+            return None, None
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")   # suppress sklearn version mismatch
+            raw    = joblib.load(_OCSVM_PKL)
             scaler = joblib.load(_SCALER_PKL)
-            return ocsvm, scaler
+        # pkl is a dict — extract the model object
+        if isinstance(raw, dict):
+            ocsvm = raw.get("model")
+        else:
+            ocsvm = raw   # direct model object (defensive)
+        if ocsvm is None or not hasattr(ocsvm, "predict"):
+            return None, None
+        return ocsvm, scaler
     except Exception:
-        pass
-    return None, None
+        return None, None
 
 
 class AnomalyDetector:

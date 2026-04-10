@@ -66,10 +66,18 @@ tracker_choice = st.sidebar.radio(
     ["SORT", "DeepSORT", "ByteTrack"],
     key="tracker_choice"
 )
-st.sidebar.caption(
-    "ℹ️ The app uses the workspace Block B tracker implementations and frozen configs. "
-    "DeepSORT uses VeRi-776 ReID; ByteTrack uses two-pass confidence association."
-)
+import os as _os
+_reid_path = _os.path.join(_os.path.dirname(__file__), "..", "..", "models", "osnet_x1_0_veri_776.pth")
+if tracker_choice == "DeepSORT" and not _os.path.exists(_reid_path):
+    st.sidebar.warning(
+        "⚠️ DeepSORT requires `models/osnet_x1_0_veri_776.pth` (VeRi-776 ReID weights).  \n"
+        "File not found — clicking **Run** will fail. Use **SORT** instead (research-frozen selection)."
+    )
+else:
+    st.sidebar.caption(
+        "ℹ️ The app uses the workspace Block B tracker implementations and frozen configs. "
+        "DeepSORT uses VeRi-776 ReID; ByteTrack uses two-pass confidence association."
+    )
 
 # 5. Block C: Features
 st.sidebar.write("### Block C — Features")
@@ -241,7 +249,7 @@ with tab1:
                     )
 
                 frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-                frame_placeholder.image(frame_rgb, use_column_width=True)
+                frame_placeholder.image(frame_rgb, use_container_width=True)
 
                 t_end = time.time()
                 frame_times.append(t_end - t_start)
