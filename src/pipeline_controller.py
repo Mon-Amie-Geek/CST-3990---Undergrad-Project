@@ -893,6 +893,19 @@ class PipelineController:
         from src.block_d_day16_validation import run_day16
         return run_day16(cfg_path)
 
+    def run_block_d_day17(self, cfg_path: str = "configs/config_blockD.yaml") -> dict:
+        """
+        Block D Day 17: FAR Validation + Latency Profiling.
+
+        Guards on Day 16 exit criteria, discovers normal AI City clips,
+        computes False Alarm Rate per method, applies FAR gate (failure is
+        'reportable but flagged' per Fix F14), builds the complete Block D
+        results table (Days 13–17), profiles per-stage latency, updates
+        config_blockD.yaml, and produces day17_report.json.
+        """
+        from src.block_d_day17_far_latency import run_day17
+        return run_day17(cfg_path)
+
 
 if __name__ == "__main__":
     test_cfg = "configs/config_blockA.yaml"

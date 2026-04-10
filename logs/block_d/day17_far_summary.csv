@@ -1,0 +1,4 @@
+method,mean_far,std_far,max_far,clips_evaluated,gate_passed,gate_note
+isolation_forest,0.0417,0.0,0.0417,3,True,PASSED
+ocsvm,0.0417,0.0,0.0417,3,True,PASSED
+rule_based,0.0417,0.0,0.0417,3,True,PASSED
