@@ -13,12 +13,18 @@ Fix: model path is resolved to an absolute path so it works regardless of
 """
 
 import os
+import tempfile
 import cv2
 import numpy as np
 import streamlit as st
 import torch
 from torchvision.models.detection import SSD300_VGG16_Weights, ssd300_vgg16
 from ultralytics import YOLO
+
+# YOLO writes to runs/detect/predict by default; on Windows this can raise
+# WinError 433 ("A device which does not exist was specified") when it tries
+# to stat() the path.  Redirect all YOLO output to a temp directory instead.
+_YOLO_SAVE_DIR = tempfile.mkdtemp(prefix="yolo_streamlit_")
 
 # ── Resolve the YOLOv8n weights path absolutely ───────────────────────────────
 # detector.py lives at  streamlit_app/components/detector.py
@@ -132,6 +138,11 @@ class Detector:
             iou=self.nms_thresh,
             verbose=False,
             device="cpu",
+            save=False,              # do not write annotated images to disk
+            save_txt=False,
+            project=_YOLO_SAVE_DIR,  # redirect save_dir away from runs/detect/predict
+            name="predict",          # (WinError 433 fix: the path must be stat-able)
+            exist_ok=True,           # don't increment predict2, predict3 … on each call
         )
         detections = []
         for result in results:

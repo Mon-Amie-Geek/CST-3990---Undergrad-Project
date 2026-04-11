@@ -170,7 +170,7 @@ with sel_col3:
     st.write("Val rows: 8,990")
     st.caption(
         "Selection: Highest OC-SVM AUROC on UA-DETRAC val split (MVI_20061). "
-        "3-sigma proxy labels from train-split statistics (Fix F04). Day 12."
+        "3-sigma proxy labels from train-split statistics. Day 12."
     )
 
 # ── Block D ────────────────────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ with sel_col4:
             st.write("All 10 events detected (100%)")
             st.caption(
                 "FAR gate threshold = 0.10. OC-SVM & rule_based pass. "
-                "Isolation Forest flagged (Fix F14). AI City Track 4. Day 17."
+                "Isolation Forest flagged. AI City Track 4. Day 17."
             )
     else:
         st.success("**Best: OC-SVM** ✅")
@@ -204,7 +204,7 @@ with sel_col4:
         st.write("All 10 events detected (100%)")
         st.caption(
             "FAR gate threshold = 0.10. OC-SVM & rule_based pass. "
-            "Isolation Forest flagged (Fix F14). AI City Track 4. Day 17."
+            "Isolation Forest flagged. AI City Track 4. Day 17."
         )
 
 st.markdown("---")
@@ -288,11 +288,11 @@ with col_m2:
     st.subheader("Alternative: SSD300 (`torchvision`)")
     st.markdown("""
 - **Source:** `torchvision.models.detection.ssd300_vgg16`
-  with `SSD300_VGG16_Weights.COCO_V1` (Fix F06 — no UA-DETRAC fine-tuning)
+  with `SSD300_VGG16_Weights.COCO_V1` (no UA-DETRAC fine-tuning)
 - **Pre-trained on:** COCO (80 classes)
 - **Vehicle classes used:** {3=car, 4=motorcycle, 6=bus, 8=truck}
 - **Inference size:** 300×300 px
-- **Thresholds:** conf = 0.25, nms = 0.45 (matched to YOLOv8n — Fix F23)
+- **Thresholds:** conf = 0.25, nms = 0.45 (matched to YOLOv8n)
 """)
     if _ba:
         _s = _ba["detectors"]["ssd300"]
@@ -330,7 +330,7 @@ The feature schema defines **23 columns** across three feature groups plus metad
 | Group | Features | Notes |
 |---|---|---|
 | **F1 — Density/Flow** | `vehicle_count`, `roi_occupancy` | Frame-level aggregates (count, occupancy fraction) |
-| **F2 — Speed** | `vel_px_sec`, `vel_px_sec_smooth` | Per-track px/sec; 5-frame rolling mean (Fix F07) |
+| **F2 — Speed** | `vel_px_sec`, `vel_px_sec_smooth` | Per-track px/sec; 5-frame rolling mean |
 | **F3 — Interaction** | `inter_vehicle_dist_norm`, `dwell_time_sec`, `proximity_flag`, `proximity_count_rolling` | Added Day 11; NaN for single-track frames |
 | **Metadata** | `seq_id`, `frame_idx`, `track_id`, `cx`, `cy`, `bbox_x1/y1/x2/y2`, `conf`, `is_interpolated`, `velocity_norm`, `track_length_real`, `split`, `tracker` | Schema bookkeeping |
 
@@ -356,7 +356,7 @@ st.markdown("---")
 st.header("⚠️ Important Disclaimers")
 
 st.warning("""
-**Distance Measurement Disclaimer (Fix F28)**
+**Distance Measurement Disclaimer**
 
 Distance values in this system are **image-space proxies normalised by frame diagonal (640×√2 ≈ 905 px)**.
 
@@ -368,7 +368,7 @@ indicators only**. See §3.8.2 of the thesis for the full construct validity dis
 """)
 
 st.info("""
-**Real-Time Operation Scope (Fix F29)**
+**Real-Time Operation Scope**
 
 This system is validated in **offline batch mode** on development hardware (Surface Pro 7, CPU).
 
@@ -381,7 +381,7 @@ The pipeline architecture is designed to support real-time deployment on dedicat
 """)
 
 st.info("""
-**Block C AUROC Construct Validity (Fix F04)**
+**Block C AUROC Construct Validity**
 
 The AUROC metric used in Block C measures OC-SVM separability of **statistical outliers
 within a normal-traffic distribution** (UA-DETRAC validation split, MVI_20061).
@@ -394,7 +394,7 @@ Proxy labels for the AUROC calculation are derived from 3-sigma thresholds compu
 """)
 
 st.warning("""
-**Isolation Forest FAR Gate Failure (Fix F14)**
+**Isolation Forest FAR Gate Failure**
 
 Isolation Forest (100 estimators, contamination='auto') achieved mean FAR = 0.3354 on AI City
 normal clips — well above the 0.10 gate threshold. This result is **reportable but annotated**:
@@ -481,7 +481,7 @@ with st.expander("Warmup & Post-Processing (Blocks B, C, D)", expanded=False):
 
 **Block C OC-SVM (Day 12):**
 - MinMaxScaler fitted on train split (7 continuous columns, normal-only rows)
-- OC-SVM: `kernel='rbf'`, `nu=0.01` (best per Fix F02 grid search over {0.01, 0.02, 0.05, 0.10, 0.15})
+- OC-SVM: `kernel='rbf'`, `nu=0.01` (best from grid search over {0.01, 0.02, 0.05, 0.10, 0.15})
 - F2_only inference uses columns 0 and 1 of the scaled 7-column vector
 
 **Block D Warmup in Live Demo:**
@@ -496,14 +496,14 @@ with st.expander("Coordinate Space & Speed Calculations", expanded=False):
 - All bboxes normalised to 640×640 reference space (not the original frame resolution)
 - Applied by `src/normalisation.py` before Block A caching
 
-**Speed Calculation (Fix F07):**
+**Speed Calculation:**
 ```
 vel_px_sec = Δpixels × fps    (pixels per second, NOT per frame)
 vel_px_sec_smooth = rolling_mean(vel_px_sec, window=int(0.2 × fps))
                   = 5 frames at 25 FPS
 ```
 
-**Inter-Vehicle Distance (Fix F28):**
+**Inter-Vehicle Distance:**
 ```
 inter_vehicle_dist_norm = min_pairwise_centroid_distance / frame_diagonal
 frame_diagonal = √(640² + 640²) ≈ 905.1 px

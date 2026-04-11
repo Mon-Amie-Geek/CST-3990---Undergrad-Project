@@ -14,8 +14,7 @@ Fixed constraints (inherited from project-wide rules):
   - Fragment filter: COMPUTED and LOGGED, NOT enforced (deferred to Day 9)
   - Track interpolation: gap sizes COMPUTED and LOGGED, NOT applied (deferred to Day 9)
   - FPS benchmark: pre-load ALL frames before timing loop; time tracker update only
-  - VeRi-776 weights cached to Drive at
-      /content/drive/MyDrive/CST3990/models/osnet_x1_0_veri_776.pth
+  - VeRi-776 weights loaded from the local workspace models/ directory
 """
 
 import os
@@ -25,7 +24,6 @@ import math
 import time
 import logging
 import random
-import subprocess
 from collections import defaultdict
 
 import numpy as np
@@ -65,32 +63,33 @@ from filterpy.kalman     import KalmanFilter
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# torchreid — install via git+ if missing (single reproducible path)
+# torchreid import helper — fail clearly if dependency is missing
 # ---------------------------------------------------------------------------
+
+_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+_DEFAULT_MODELS_DIR = os.path.join(_REPO_ROOT, "models")
+_DEFAULT_REID_WEIGHTS = os.path.join(_DEFAULT_MODELS_DIR, "osnet_x1_0_veri_776.pth")
 
 def _ensure_torchreid():
     try:
         import torchreid
         return torchreid
     except ImportError:
-        logger.info("torchreid not found — installing via git+...")
-        subprocess.check_call([
-            sys.executable, "-m", "pip", "install",
-            "git+https://github.com/KaiyangZhou/deep-person-reid.git",
-            "--quiet"
-        ])
-        import torchreid
-        return torchreid
+        raise ImportError(
+            "torchreid is required for DeepSORT but is not installed. "
+            "Install the pinned dependencies from requirements.txt before "
+            "running DeepSORT."
+        ) from None
 
 
 # ---------------------------------------------------------------------------
-# OSNet VeRi-776 model builder — with Drive caching
+# OSNet VeRi-776 model builder — local workspace weights only
 # ---------------------------------------------------------------------------
 
-def build_reid_model(drive_models_dir="/content/drive/MyDrive/CST3990/models"):
+def build_reid_model(models_dir=None):
     """
     Build OSNet x1_0 with VeRi-776 weights (num_classes=576).
-    Loads from Drive cache on subsequent runs to avoid re-download.
+    Loads weights from the local workspace only.
 
     CRITICAL: num_classes=576 (VeRi-776). Market-1501=1501. Never fall back.
     """
@@ -101,7 +100,14 @@ def build_reid_model(drive_models_dir="/content/drive/MyDrive/CST3990/models"):
     np.random.seed(42)
     random.seed(42)
 
-    weight_path = os.path.join(drive_models_dir, "osnet_x1_0_veri_776.pth")
+    if models_dir is None:
+        models_dir = _DEFAULT_MODELS_DIR
+    weight_path = os.path.join(models_dir, "osnet_x1_0_veri_776.pth")
+    if not os.path.exists(weight_path):
+        raise FileNotFoundError(
+            "DeepSORT VeRi-776 weights not found. Expected local file: "
+            f"{weight_path}"
+        )
 
     model = torchreid.models.build_model(
         name='osnet_x1_0',
@@ -109,32 +115,14 @@ def build_reid_model(drive_models_dir="/content/drive/MyDrive/CST3990/models"):
         pretrained=False
     )
 
-    if os.path.exists(weight_path):
-        torchreid.utils.load_pretrained_weights(model, weight_path)
-        logger.info(f"VeRi-776 weights loaded from Drive cache: {weight_path}")
-        print(f"  [DeepSORT] VeRi-776 weights loaded from Drive cache ✓")
-    else:
-        # First run: download via FeatureExtractor using the 'veri' zoo key.
-        # The long filename string is not a valid zoo key — torchreid recognises
-        # dataset shortnames ('veri', 'msmt17', 'imagenet', etc.).
-        os.makedirs(drive_models_dir, exist_ok=True)
-        print(f"  [DeepSORT] Downloading VeRi-776 weights (zoo key: 'veri') ...")
-        device_str = "cuda" if torch.cuda.is_available() else "cpu"
-        fe = torchreid.utils.FeatureExtractor(
-            model_name='osnet_x1_0',
-            model_path='veri',
-            device=device_str
-        )
-        model = fe.model
-
-        # Cache to Drive as a torchreid-compatible checkpoint
-        torch.save({'state_dict': model.state_dict()}, weight_path)
-        print(f"  [DeepSORT] VeRi-776 weights cached to Drive: {weight_path} ✓")
+    torchreid.utils.load_pretrained_weights(model, weight_path)
+    logger.info("VeRi-776 weights loaded from local workspace: %s", weight_path)
+    print("  [DeepSORT] VeRi-776 weights loaded from local workspace OK")
 
     model.eval()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model  = model.to(device)
-    print(f"  [DeepSORT] OSNet x1_0 (VeRi-776, num_classes=576) ready on {device} ✓")
+    print(f"  [DeepSORT] OSNet x1_0 (VeRi-776, num_classes=576) ready on {device} OK")
     return model, device
 
 
@@ -494,7 +482,7 @@ def _detect_day7_layout():
 def run_deepsort_on_sequence(seq_id, split, config,
                               reid_model=None, reid_device=None,
                               drive_dataset_root=None,
-                              drive_models_dir="/content/drive/MyDrive/CST3990/models",
+                              drive_models_dir=None,
                               gt_root=None,
                               day7_layout=None):
     """
@@ -507,9 +495,8 @@ def run_deepsort_on_sequence(seq_id, split, config,
         reid_model:        pre-built OSNet model (pass to avoid reloading per sequence)
         reid_device:       torch device for reid_model
         drive_dataset_root: path to raw frames, e.g.
-                           /content/drive/MyDrive/CST3990/datasets/ua_detrac/raw
                            (None = use local data/ua_detrac/raw)
-        drive_models_dir:  Drive path for caching VeRi-776 weights
+        drive_models_dir:  models directory containing osnet_x1_0_veri_776.pth
         gt_root:           path to annotation XMLs
         day7_layout:       "variant_a" | "variant_b" | None (auto-detect)
 
@@ -582,7 +569,7 @@ def run_deepsort_on_sequence(seq_id, split, config,
             logger.warning(f"Frame not found: {img_path} — using blank frame")
             img = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
         frames_preloaded[fid] = img
-    print(f"  [DeepSORT] Pre-load complete ✓")
+    print(f"  [DeepSORT] Pre-load complete OK")
 
     # --- Initialise tracker ---
     tracker = DeepSORT(
@@ -738,7 +725,7 @@ def run_deepsort_on_sequence(seq_id, split, config,
 
 def run_deepsort_on_sequences(seq_ids, split, config,
                                drive_dataset_root=None,
-                               drive_models_dir="/content/drive/MyDrive/CST3990/models",
+                               drive_models_dir=None,
                                gt_root=None,
                                day7_layout=None):
     """

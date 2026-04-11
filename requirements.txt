@@ -9,12 +9,14 @@ torchvision==0.18.1
 ultralytics==8.2.0
 #For image and video processing
 opencv-python==4.9.0.80
+#Packaging library pinned for Streamlit 1.32 compatibility
+packaging<24
 #Core numerical library for Python
 numpy==1.26.4
 #Data analysis library
 pandas==2.2.2
 #Machine learning library
-scikit-learn==1.5.0
+scikit-learn==1.6.1
 #Scientific computing library
 scipy==1.13.1
 #Statistical modelling library
@@ -36,7 +38,7 @@ matplotlib==3.9.0
 #Advanced statistical visualisation library
 seaborn==0.13.2
 #Interactive plotting library (used in Streamlit app pages)
-plotly==5.22.0
+plotly==6.6.0
 
 # --- Day 8 additions ---
 # Deep-person-reid (torchreid) — VeRi-776 ReID backbone for DeepSORT
@@ -52,7 +54,7 @@ torchreid @ git+https://github.com/KaiyangZhou/deep-person-reid.git
 
 # --- Day 11 additions ---
 # Block C Day 11 (F3 features + MinMaxScaler) requires:
-#   scikit-learn>=1.2 — already pinned as scikit-learn==1.5.0  (satisfies >=1.2)
+#   scikit-learn>=1.2 — already pinned as scikit-learn==1.6.1  (satisfies >=1.2)
 #   joblib>=1.2       — already pinned as joblib==1.4.2         (satisfies >=1.2)
 #   scipy>=1.9.0      — already pinned as scipy==1.13.1         (satisfies >=1.9.0)
 #   numpy>=1.24       — already pinned as numpy==1.26.4         (satisfies >=1.24)

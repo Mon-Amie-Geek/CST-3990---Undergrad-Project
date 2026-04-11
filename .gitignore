@@ -36,7 +36,10 @@ models/*
 !models/minmax_scaler.pkl
 !logs/block_c/ocsvm_trained_best.pkl
 !logs/block_d/isolation_forest_f2_train_normal.pkl
-!logs/block_d/isolation_forest_f2_train_normal.pkl
+*.log
+*.err
+*.crdownload
+streamlit_app/.streamlit_uploads/
 
 # -----------------------------------------------
 # CACHE, LOGS, RUNS — generated at runtime

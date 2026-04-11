@@ -231,8 +231,8 @@ with col_b:
 | Tracker | IDF1 | IDSW | FPS |
 |--|--|--|--|
 | **SORT** | **0.0412** | 31 | 1129.7 |
-| DeepSORT | 0.0389 | 38 | 8.4 |
-| ByteTrack | 0.0401 | 29 | 623.1 |
+| DeepSORT | 0.0008 | 0 | 1063.7 |
+| ByteTrack | 0.0007 | 0 | 1231.4 |
 """)
         st.info("🔒 **Frozen:** `sort` (Day 9)  \nIDF1 = **0.0412** (highest)")
 
@@ -262,9 +262,9 @@ with col_c:
 | Set | AUROC | Sil. | nu |
 |--|--|--|--|
 | **F2_only** | **0.9935** | 0.9431 | 0.01 |
-| F1_only | 0.7821 | 0.6120 | 0.05 |
-| F2+F3 | 0.9812 | 0.9103 | 0.01 |
-| All | 0.9744 | 0.8871 | 0.01 |
+| F1_only | 0.4724 | -0.0022 | 0.05 |
+| F2+F3 | 0.6410 | 0.4710 | 0.01 |
+| All | 0.7312 | 0.3677 | 0.01 |
 """)
         st.info("🔒 **Frozen:** `F2_only` (Day 12)  \nAUROC = **0.9935** | nu = 0.01")
 
@@ -284,7 +284,7 @@ with col_d:
         st.info(
             "🔒 Gate: FAR < 0.10  \n"
             "`OC-SVM` & `rule_based` **✅ PASS**  \n"
-            "`isolation_forest` **❌ FAIL** (Fix F14)"
+            "`isolation_forest` **❌ FAIL**"
         )
     else:
         st.warning("**Block D — Anomaly Detection**")
@@ -338,7 +338,7 @@ if _bd_df is not None and not _bd_df.empty:
     st.caption(
         "Green bars = FAR gate passed (mean FAR < 0.10). Red bar = gate flagged.  "
         "Error bars = ±1 std dev across 10 normal clips.  "
-        "Isolation Forest flagged (Fix F14) — results annotated, not excluded."
+        "Isolation Forest flagged — results annotated, not excluded."
     )
     st.markdown("---")
 
@@ -455,7 +455,7 @@ if _lat:
         st.plotly_chart(fig_lat, use_container_width=True)
 
     st.caption(
-        "⚠️ Timings are indicative offline-batch measurements on a Surface Pro 7 CPU (Fix F29). "
+        "⚠️ Timings are indicative offline-batch measurements on a Surface Pro 7 CPU. "
         "Not real-time guarantees — dedicated edge hardware required for real-time deployment."
     )
     st.markdown("---")

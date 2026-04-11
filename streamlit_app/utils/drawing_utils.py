@@ -110,7 +110,7 @@ def draw_anomaly_banner(frame, message):
     thickness  = 2
     max_chars  = max(10, fw // 14)
     if len(message) > max_chars:
-        message = message[:max_chars - 1] + "…"
+        message = message[:max_chars - 3] + "..."
 
     cv2.putText(
         frame_copy, message,

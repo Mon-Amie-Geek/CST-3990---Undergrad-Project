@@ -5,9 +5,15 @@ Utilities for video loading, metadata extraction, and file management.
 Student: MANJOO Ameera Najla | M01014463
 """
 
+from pathlib import Path
+from uuid import uuid4
+
 import cv2
-import tempfile
-import os
+
+
+_UTILS_DIR = Path(__file__).resolve().parent
+_APP_DIR = _UTILS_DIR.parent
+_UPLOAD_DIR = _APP_DIR / ".streamlit_uploads"
 
 
 def get_video_metadata(video_path):
@@ -56,9 +62,26 @@ def save_uploaded_file(uploaded_file):
     Returns:
         str: Path to the saved temporary file
     """
-    with tempfile.NamedTemporaryFile(
-        delete=False, 
-        suffix=".mp4"
-    ) as tmp_file:
-        tmp_file.write(uploaded_file.read())
-        return tmp_file.name
+    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    original_name = getattr(uploaded_file, "name", "uploaded_video.mp4")
+    suffix = Path(original_name).suffix or ".mp4"
+    safe_stem = Path(original_name).stem or "uploaded_video"
+    safe_stem = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in safe_stem)
+    output_path = _UPLOAD_DIR / f"{safe_stem}_{uuid4().hex}{suffix}"
+
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(0)
+
+    if hasattr(uploaded_file, "getbuffer"):
+        file_bytes = uploaded_file.getbuffer()
+    else:
+        file_bytes = uploaded_file.read()
+
+    with open(output_path, "wb") as output_file:
+        output_file.write(file_bytes)
+
+    if hasattr(uploaded_file, "seek"):
+        uploaded_file.seek(0)
+
+    return str(output_path)

@@ -1,69 +1,67 @@
 """
 anomaly_detector.py
 
-Anomaly detection module implementing rule-based, One-Class SVM, and Isolation Forest methods.
+Anomaly detection module implementing rule-based, One-Class SVM, and
+Isolation Forest methods.
 OC-SVM nu=0.01 aligns with Block C Day 12 best-nu result (F2_only, AUROC=0.9935).
 If the pre-trained OC-SVM (logs/block_c/ocsvm_trained_best.pkl) and MinMaxScaler
 (models/minmax_scaler.pkl) are available, the OC-SVM option loads them directly
-instead of training on warmup data — this gives Block C research-quality inference.
+instead of training on warmup data when the selected feature set is exactly
+F2_only. Other feature-set choices are trained online from warmup data so every
+Block C and Block D combination works coherently.
 Student: MANJOO Ameera Najla | M01014463
 """
 
+import logging
 import os
-import numpy as np
+import warnings
 from collections import deque
-from sklearn.svm import OneClassSVM
+
+import numpy as np
+import pandas as pd
 from sklearn.ensemble import IsolationForest
+from sklearn.svm import OneClassSVM
 
-# ── Paths to pre-trained artefacts (Block C) ─────────────────────────────────
-_COMP_DIR    = os.path.dirname(__file__)                         # streamlit_app/components/
-_OCSVM_PKL   = os.path.normpath(os.path.join(
-    _COMP_DIR, "..", "..", "logs", "block_c", "ocsvm_trained_best.pkl"))
-_SCALER_PKL  = os.path.normpath(os.path.join(
-    _COMP_DIR, "..", "..", "models", "minmax_scaler.pkl"))
+# Paths to pre-trained artefacts (Block C)
+_COMP_DIR = os.path.dirname(__file__)
+_OCSVM_PKL = os.path.normpath(
+    os.path.join(_COMP_DIR, "..", "..", "logs", "block_c", "ocsvm_trained_best.pkl")
+)
+_SCALER_PKL = os.path.normpath(
+    os.path.join(_COMP_DIR, "..", "..", "models", "minmax_scaler.pkl")
+)
 
-# ── Block C OC-SVM feature order (F2_only): vel_px_sec, vel_px_sec_smooth ───
-# The scaler was fitted on 7 columns in this order (SCALER_FIT_COLUMNS):
-#   [vel_px_sec, vel_px_sec_smooth, vehicle_count, roi_occupancy,
-#    inter_vehicle_dist_norm, dwell_time_sec, proximity_count_rolling]
-# For F2-only inference we build a 7-column row and pass only the two speed columns
-# to the loaded OC-SVM (which was fitted on 2-column input after scaler transform).
+# Block C OC-SVM feature order (F2_only)
 _SCALER_COLS = [
-    "vel_px_sec", "vel_px_sec_smooth",
-    "vehicle_count", "roi_occupancy",
-    "inter_vehicle_dist_norm", "dwell_time_sec",
+    "vel_px_sec",
+    "vel_px_sec_smooth",
+    "vehicle_count",
+    "roi_occupancy",
+    "inter_vehicle_dist_norm",
+    "dwell_time_sec",
     "proximity_count_rolling",
 ]
-_F2_ONLY_IDXS = [0, 1]  # positions of vel_px_sec, vel_px_sec_smooth in SCALER_COLS
+_F2_ONLY_IDXS = [0, 1]
+_LOGGER = logging.getLogger(__name__)
 
 
 def _try_load_pretrained():
     """
     Attempt to load the Block C pre-trained OC-SVM and MinMaxScaler.
     Returns (ocsvm, scaler) or (None, None) if files are not available.
-
-    The OC-SVM pkl is saved as a dict with keys:
-        'model'            → OneClassSVM instance
-        'feature_columns'  → ['vel_px_sec', 'vel_px_sec_smooth']
-        'best_nu'          → 0.01
-        'auroc'            → 0.9935
-        ...
-    We extract ocsvm = d['model'] so that .predict()/.decision_function() work.
     """
     try:
-        import warnings
         import joblib
+
         if not (os.path.exists(_OCSVM_PKL) and os.path.exists(_SCALER_PKL)):
             return None, None
+
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore")   # suppress sklearn version mismatch
-            raw    = joblib.load(_OCSVM_PKL)
+            warnings.simplefilter("ignore")
+            raw = joblib.load(_OCSVM_PKL)
             scaler = joblib.load(_SCALER_PKL)
-        # pkl is a dict — extract the model object
-        if isinstance(raw, dict):
-            ocsvm = raw.get("model")
-        else:
-            ocsvm = raw   # direct model object (defensive)
+
+        ocsvm = raw.get("model") if isinstance(raw, dict) else raw
         if ocsvm is None or not hasattr(ocsvm, "predict"):
             return None, None
         return ocsvm, scaler
@@ -76,260 +74,348 @@ class AnomalyDetector:
     Detect anomalous vehicle behaviours using configurable methods.
 
     OC-SVM path:
-      - If the Block C pre-trained model (ocsvm_trained_best.pkl) and scaler
-        (minmax_scaler.pkl) are found at repo root, they are loaded directly.
-        Inference uses [mean_speed_px_sec, mean_speed_px_sec_smooth] as F2_only features.
-      - Otherwise, the model is trained on warmup data (first `warmup_frames` frames)
-        using nu=0.01 (Block C Day 12 best nu).
+      - When the selected feature set is exactly F2_only and the Block C
+        artefacts exist, the pre-trained model is used directly.
+      - Otherwise the model is trained on warmup data collected from the
+        selected live feature groups.
 
-    Isolation Forest: always trained on warmup data (no pre-trained artefact).
-    Rule-Based: online Z-score (mean ± 2×std) from rolling history.
+    Isolation Forest:
+      - Always trained on warmup data collected from the selected groups.
+
+    Rule-Based:
+      - Applies simple rolling thresholds using whichever feature groups are
+        currently selected.
     """
 
     def __init__(self, method="rule_based"):
-        """
-        Initialise anomaly detector.
-
-        Args:
-            method (str): One of "rule_based", "ocsvm", "isolation_forest"
-        """
-        self.method        = method
+        self.method = method
         self.speed_history = deque(maxlen=500)
-        self.dist_history  = deque(maxlen=500)
-        self.warmup_frames = 200      # collect normal stats before predicting
-        self.frame_count   = 0
+        self.dist_history = deque(maxlen=500)
+        self.count_history = deque(maxlen=500)
+        self.warmup_frames = 200
+        self.frame_count = 0
 
-        # Rule-based statistics
-        self.speed_mean = None
-        self.speed_std  = None
-        self.dist_mean  = None
-        self.dist_std   = None
-
-        # Rolling smoothed speed (approximate vel_px_sec_smooth for OC-SVM)
-        self._speed_buf     = deque(maxlen=5)   # 5-frame window ≈ 0.2s at 25 FPS
+        # Rolling smoothed speed (approximate vel_px_sec_smooth)
+        self._speed_buf = deque(maxlen=5)
 
         # Feature history for warmup training
         self.feature_history = []
 
         # ML models
-        self.ocsvm            = None
+        self.ocsvm = None
         self.isolation_forest = None
-        self.is_trained       = False
-        self._pretrained_ocsvm   = None
-        self._pretrained_scaler  = None
-        self._using_pretrained   = False
+        self.is_trained = False
+        self._pretrained_ocsvm = None
+        self._pretrained_scaler = None
+        self._using_pretrained = False
 
-        # Try to load Block C pre-trained artefacts for OC-SVM
         if self.method == "ocsvm":
-            _m, _s = _try_load_pretrained()
-            if _m is not None:
-                self._pretrained_ocsvm  = _m
-                self._pretrained_scaler = _s
-                self._using_pretrained  = True
-
-    # ─────────────────────────────────────────────────────────────────────────
+            model, scaler = _try_load_pretrained()
+            if model is not None:
+                self._pretrained_ocsvm = model
+                self._pretrained_scaler = scaler
+                self._using_pretrained = True
 
     def predict(self, feature_dict):
         """
         Predict if the current frame contains anomalies.
 
         Args:
-            feature_dict (dict): Output of FeatureExtractor.extract(), containing at minimum:
-                - mean_speed_px_sec  (float)
-                - min_distance_norm  (float)
-                - mean_dwell_sec     (float)  [optional]
-                - vehicle_count      (int)    [optional]
-                - roi_occupancy      (float)  [optional]
+            feature_dict: Output of FeatureExtractor.extract()
 
         Returns:
             dict: {is_anomaly, score, method, triggered_feature}
         """
         self.frame_count += 1
 
-        speed    = float(feature_dict.get("mean_speed_px_sec", 0.0))
+        speed = float(feature_dict.get("mean_speed_px_sec", 0.0))
         distance = float(feature_dict.get("min_distance_norm", 1.0))
-        dwell    = float(feature_dict.get("mean_dwell_sec", 0.0))
-        v_count  = float(feature_dict.get("vehicle_count", 0))
-        roi_occ  = float(feature_dict.get("roi_occupancy", 0.0))
+        dwell = float(feature_dict.get("mean_dwell_sec", 0.0))
+        vehicle_count = float(feature_dict.get("vehicle_count", 0.0))
+        roi_occupancy = float(feature_dict.get("roi_occupancy", 0.0))
+        selected_features = set(feature_dict.get("selected_features") or [])
 
-        # Maintain rolling smoothed speed (approx. vel_px_sec_smooth)
         self._speed_buf.append(speed)
         speed_smooth = float(np.mean(self._speed_buf))
 
         self.speed_history.append(speed)
         self.dist_history.append(distance)
+        self.count_history.append(vehicle_count)
 
-        _no_anomaly = {
-            "is_anomaly": False, "score": 0.0,
-            "method": self.method, "triggered_feature": None
+        ml_vector = self._build_ml_vector(
+            speed,
+            speed_smooth,
+            distance,
+            dwell,
+            vehicle_count,
+            roi_occupancy,
+            selected_features,
+        )
+        use_pretrained_ocsvm = (
+            self.method == "ocsvm"
+            and self._using_pretrained
+            and selected_features == {"F2: Speed"}
+        )
+
+        no_anomaly = {
+            "is_anomaly": False,
+            "score": 0.0,
+            "method": self.method,
+            "triggered_feature": None,
         }
 
-        # Warmup: collect data, no predictions
         if self.frame_count <= self.warmup_frames:
-            self.feature_history.append([speed, speed_smooth])
-            return _no_anomaly
+            self.feature_history.append(ml_vector)
+            return no_anomaly
 
-        # Train warmup-based models once (frame warmup_frames + 1)
         if not self.is_trained:
-            self._train()
+            if use_pretrained_ocsvm:
+                self.is_trained = True
+            else:
+                self._train()
 
-        # Pre-trained OC-SVM: skip warmup training, use Block C model directly
-        if self.method == "ocsvm" and self._using_pretrained:
-            return self._predict_ocsvm_pretrained(speed, speed_smooth, v_count, roi_occ, distance, dwell)
+        if use_pretrained_ocsvm:
+            return self._predict_ocsvm_pretrained(
+                speed,
+                speed_smooth,
+                vehicle_count,
+                roi_occupancy,
+                distance,
+                dwell,
+            )
 
         if self.method == "rule_based":
-            return self._predict_rule_based(speed, distance)
-        elif self.method == "ocsvm":
-            return self._predict_ocsvm_warmup(speed, speed_smooth)
-        elif self.method == "isolation_forest":
-            return self._predict_isolation_forest(speed, distance)
+            return self._predict_rule_based(
+                speed, distance, vehicle_count, selected_features
+            )
+        if self.method == "ocsvm":
+            return self._predict_ocsvm_warmup(ml_vector, selected_features)
+        if self.method == "isolation_forest":
+            return self._predict_isolation_forest(ml_vector, selected_features)
 
-        return _no_anomaly
+        return no_anomaly
 
-    # ─────────────────────────────────────────────────────────────────────────
+    def _build_ml_vector(
+        self,
+        speed,
+        speed_smooth,
+        distance,
+        dwell,
+        vehicle_count,
+        roi_occupancy,
+        selected_features,
+    ):
+        """Build the model input vector from the selected feature groups."""
+        vector = []
+
+        if "F1: Density/Flow" in selected_features:
+            vector.extend([vehicle_count, roi_occupancy])
+        if "F2: Speed" in selected_features:
+            vector.extend([speed, speed_smooth])
+        if "F3: Distance/Proximity" in selected_features:
+            vector.extend([distance, dwell])
+
+        if not vector:
+            vector = [speed, speed_smooth]
+
+        return vector
 
     def _train(self):
-        """Train ML-based detectors on warmup data (used when pre-trained not available)."""
+        """Train warmup-based models on the collected live feature vectors."""
         if len(self.feature_history) < 10:
             self.is_trained = True
             return
 
-        X = np.array(self.feature_history)  # shape (N, 2): [speed, speed_smooth]
+        X = np.array(self.feature_history, dtype=float)
 
         if self.method == "ocsvm":
-            # nu=0.01: Block C Day 12 best nu for F2_only (AUROC=0.9935)
             self.ocsvm = OneClassSVM(kernel="rbf", nu=0.01)
             try:
                 self.ocsvm.fit(X)
-            except Exception as e:
-                print(f"[AnomalyDetector] OC-SVM warmup training failed: {e}")
+            except Exception as exc:
+                _LOGGER.warning("OC-SVM warmup training failed: %s", exc)
 
         elif self.method == "isolation_forest":
             self.isolation_forest = IsolationForest(
-                n_estimators=100, contamination=0.05, random_state=42
+                n_estimators=100,
+                contamination=0.05,
+                random_state=42,
             )
             try:
                 self.isolation_forest.fit(X)
-            except Exception as e:
-                print(f"[AnomalyDetector] IsolationForest warmup training failed: {e}")
+            except Exception as exc:
+                _LOGGER.warning("IsolationForest warmup training failed: %s", exc)
 
         self.is_trained = True
 
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def _predict_rule_based(self, speed, distance):
-        """Rule-based anomaly detection using Z-score thresholds (mean ± 2×std)."""
+    def _predict_rule_based(self, speed, distance, vehicle_count, selected_features):
+        """Rule-based anomaly detection over the currently selected feature groups."""
         if len(self.speed_history) < 10:
-            return {"is_anomaly": False, "score": 0.0,
-                    "method": self.method, "triggered_feature": None}
+            return {
+                "is_anomaly": False,
+                "score": 0.0,
+                "method": self.method,
+                "triggered_feature": None,
+            }
 
-        speed_arr = np.array(list(self.speed_history))
-        dist_arr  = np.array(list(self.dist_history))
+        speed_arr = np.array(list(self.speed_history), dtype=float)
+        dist_arr = np.array(list(self.dist_history), dtype=float)
+        count_arr = np.array(list(self.count_history), dtype=float)
 
         s_mean, s_std = float(np.mean(speed_arr)), float(np.std(speed_arr))
-        d_mean, d_std = float(np.mean(dist_arr)),  float(np.std(dist_arr))
+        d_mean, d_std = float(np.mean(dist_arr)), float(np.std(dist_arr))
+        c_mean, c_std = float(np.mean(count_arr)), float(np.std(count_arr))
 
         speed_high = s_mean + 2.0 * s_std
-        dist_low   = d_mean - 2.0 * d_std
+        dist_low = d_mean - 2.0 * d_std
+        count_high = c_mean + 2.0 * c_std
 
-        is_anomaly      = False
-        triggered_feat  = None
+        is_anomaly = False
+        triggered_feature = None
+        scores = []
 
-        if speed > speed_high:
-            is_anomaly     = True
-            triggered_feat = f"High Speed ({speed:.1f} > {speed_high:.1f} px/s)"
+        if "F2: Speed" in selected_features:
+            scores.append(abs((speed - s_mean) / (s_std + 1e-6)))
+            if speed > speed_high:
+                is_anomaly = True
+                triggered_feature = f"High Speed ({speed:.1f} > {speed_high:.1f} px/s)"
 
-        if distance < dist_low and not is_anomaly:
-            is_anomaly     = True
-            triggered_feat = f"Low Distance ({distance:.3f} < {dist_low:.3f})"
+        if (
+            "F3: Distance/Proximity" in selected_features
+            and distance < dist_low
+            and not is_anomaly
+        ):
+            scores.append(abs((d_mean - distance) / (d_std + 1e-6)))
+            is_anomaly = True
+            triggered_feature = f"Low Distance ({distance:.3f} < {dist_low:.3f})"
+        elif "F3: Distance/Proximity" in selected_features:
+            scores.append(abs((d_mean - distance) / (d_std + 1e-6)))
 
-        score = (speed - s_mean) / (s_std + 1e-6)
+        if (
+            "F1: Density/Flow" in selected_features
+            and vehicle_count > count_high
+            and not is_anomaly
+        ):
+            scores.append(abs((vehicle_count - c_mean) / (c_std + 1e-6)))
+            is_anomaly = True
+            triggered_feature = (
+                f"High Density ({vehicle_count:.1f} > {count_high:.1f} vehicles)"
+            )
+        elif "F1: Density/Flow" in selected_features:
+            scores.append(abs((vehicle_count - c_mean) / (c_std + 1e-6)))
 
         return {
-            "is_anomaly":        is_anomaly,
-            "score":             float(abs(score)),
-            "method":            self.method,
-            "triggered_feature": triggered_feat,
+            "is_anomaly": is_anomaly,
+            "score": float(max(scores) if scores else 0.0),
+            "method": self.method,
+            "triggered_feature": triggered_feature,
         }
 
-    def _predict_ocsvm_warmup(self, speed, speed_smooth):
-        """OC-SVM trained on warmup data (fallback when pre-trained not available)."""
+    def _predict_ocsvm_warmup(self, feature_vector, selected_features):
+        """Warmup-trained OC-SVM prediction using the selected feature groups."""
         if self.ocsvm is None:
-            return {"is_anomaly": False, "score": 0.0,
-                    "method": self.method, "triggered_feature": None}
-        try:
-            X    = np.array([[speed, speed_smooth]])
-            pred = self.ocsvm.predict(X)[0]
-            scr  = -float(self.ocsvm.decision_function(X)[0])
             return {
-                "is_anomaly":        pred == -1,
-                "score":             abs(scr),
-                "method":            self.method,
-                "triggered_feature": "OC-SVM (speed)" if pred == -1 else None,
+                "is_anomaly": False,
+                "score": 0.0,
+                "method": self.method,
+                "triggered_feature": None,
             }
-        except Exception as e:
-            print(f"[AnomalyDetector] OC-SVM warmup prediction failed: {e}")
-            return {"is_anomaly": False, "score": 0.0,
-                    "method": self.method, "triggered_feature": None}
 
-    def _predict_ocsvm_pretrained(self, speed, speed_smooth, v_count, roi_occ, distance, dwell):
+        try:
+            X = np.array([feature_vector], dtype=float)
+            pred = self.ocsvm.predict(X)[0]
+            score = -float(self.ocsvm.decision_function(X)[0])
+            feature_label = " + ".join(sorted(selected_features)) or "selected features"
+            return {
+                "is_anomaly": pred == -1,
+                "score": abs(score),
+                "method": self.method,
+                "triggered_feature": f"OC-SVM ({feature_label})" if pred == -1 else None,
+            }
+        except Exception as exc:
+            _LOGGER.warning("OC-SVM warmup prediction failed: %s", exc)
+            return {
+                "is_anomaly": False,
+                "score": 0.0,
+                "method": self.method,
+                "triggered_feature": None,
+            }
+
+    def _predict_ocsvm_pretrained(
+        self, speed, speed_smooth, vehicle_count, roi_occupancy, distance, dwell
+    ):
         """
-        OC-SVM inference using the Block C pre-trained model (F2_only, nu=0.01).
-        Builds the full 7-column scaled row, extracts F2 columns, and queries the model.
+        Pre-trained Block C OC-SVM inference for the exact F2_only configuration.
         """
         try:
-            # Build full 7-column vector (fill unavailable F3 with 0 — NaN-safe approximation)
-            x_full = np.array([[
-                speed, speed_smooth, v_count, roi_occ,
-                distance, dwell, 0.0  # proximity_count_rolling not available in streaming
-            ]])
-            # Scale with the fitted MinMaxScaler
-            x_scaled = self._pretrained_scaler.transform(x_full)
-            # Extract F2-only columns (indices 0,1: vel_px_sec, vel_px_sec_smooth)
+            x_full = pd.DataFrame(
+                [[
+                    speed,
+                    speed_smooth,
+                    vehicle_count,
+                    roi_occupancy,
+                    distance,
+                    dwell,
+                    0.0,
+                ]],
+                columns=_SCALER_COLS,
+            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                x_scaled = self._pretrained_scaler.transform(x_full)
             x_f2 = x_scaled[:, _F2_ONLY_IDXS]
             pred = self._pretrained_ocsvm.predict(x_f2)[0]
-            scr  = -float(self._pretrained_ocsvm.decision_function(x_f2)[0])
+            score = -float(self._pretrained_ocsvm.decision_function(x_f2)[0])
             return {
-                "is_anomaly":        pred == -1,
-                "score":             abs(scr),
-                "method":            "ocsvm (Block C F2_only)",
+                "is_anomaly": pred == -1,
+                "score": abs(score),
+                "method": "ocsvm (Block C F2_only)",
                 "triggered_feature": "OC-SVM [Block C F2_only]" if pred == -1 else None,
             }
-        except Exception as e:
-            print(f"[AnomalyDetector] Pre-trained OC-SVM prediction failed: {e}")
-            # Fallback to warmup-based if loaded but fails
-            return self._predict_ocsvm_warmup(speed, speed_smooth)
+        except Exception as exc:
+            _LOGGER.warning("Pre-trained OC-SVM prediction failed: %s", exc)
+            return self._predict_ocsvm_warmup([speed, speed_smooth], {"F2: Speed"})
 
-    def _predict_isolation_forest(self, speed, distance):
-        """Isolation Forest anomaly detection."""
+    def _predict_isolation_forest(self, feature_vector, selected_features):
+        """Warmup-trained Isolation Forest prediction over selected feature groups."""
         if self.isolation_forest is None:
-            return {"is_anomaly": False, "score": 0.0,
-                    "method": self.method, "triggered_feature": None}
-        try:
-            X    = np.array([[speed, distance]])
-            pred = self.isolation_forest.predict(X)[0]
-            scr  = -float(self.isolation_forest.score_samples(X)[0])
             return {
-                "is_anomaly":        pred == -1,
-                "score":             abs(scr),
-                "method":            self.method,
-                "triggered_feature": "Isolation Forest" if pred == -1 else None,
+                "is_anomaly": False,
+                "score": 0.0,
+                "method": self.method,
+                "triggered_feature": None,
             }
-        except Exception as e:
-            print(f"[AnomalyDetector] IsolationForest prediction failed: {e}")
-            return {"is_anomaly": False, "score": 0.0,
-                    "method": self.method, "triggered_feature": None}
 
-    # ─────────────────────────────────────────────────────────────────────────
+        try:
+            X = np.array([feature_vector], dtype=float)
+            pred = self.isolation_forest.predict(X)[0]
+            score = -float(self.isolation_forest.score_samples(X)[0])
+            feature_label = " + ".join(sorted(selected_features)) or "selected features"
+            return {
+                "is_anomaly": pred == -1,
+                "score": abs(score),
+                "method": self.method,
+                "triggered_feature": (
+                    f"Isolation Forest ({feature_label})" if pred == -1 else None
+                ),
+            }
+        except Exception as exc:
+            _LOGGER.warning("IsolationForest prediction failed: %s", exc)
+            return {
+                "is_anomaly": False,
+                "score": 0.0,
+                "method": self.method,
+                "triggered_feature": None,
+            }
 
     def reset(self):
         """Reset detector state for a new video."""
         self.speed_history.clear()
         self.dist_history.clear()
+        self.count_history.clear()
         self._speed_buf.clear()
-        self.feature_history  = []
-        self.frame_count      = 0
-        self.is_trained       = False
-        self.ocsvm            = None
+        self.feature_history = []
+        self.frame_count = 0
+        self.is_trained = False
+        self.ocsvm = None
         self.isolation_forest = None
-        # Pre-trained artefacts are NOT reset — they persist across videos

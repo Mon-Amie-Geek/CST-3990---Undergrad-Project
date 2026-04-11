@@ -28,7 +28,11 @@ class FeatureExtractor:
         self.fps = fps
         self.width = width
         self.height = height
-        self.selected_features = selected_features or ["F1: Density/Flow", "F2: Speed", "F3: Distance"]
+        self.selected_features = selected_features or [
+            "F1: Density/Flow",
+            "F2: Speed",
+            "F3: Distance/Proximity",
+        ]
         
         # Compute temporal windows in frames from seconds
         self.speed_window_sec = 0.2
@@ -97,7 +101,8 @@ class FeatureExtractor:
             "roi_occupancy": roi_occupancy,
             "mean_speed_px_sec": mean_speed,
             "min_distance_norm": min_distance,
-            "mean_dwell_sec": mean_dwell
+            "mean_dwell_sec": mean_dwell,
+            "selected_features": list(self.selected_features),
         }
     
     def _compute_roi_occupancy(self, tracks):

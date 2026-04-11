@@ -2,8 +2,7 @@
 2_Comparison.py
 
 Comparison page showing experimental results from all blocks.
-Blocks A, B, C load from actual result files in logs/.
-Block D section is pending — placeholder shown until evaluation completes.
+All blocks load from actual result files in logs/ when available.
 Student: MANJOO Ameera Najla | M01014463
 """
 
@@ -34,8 +33,8 @@ def _load_json(path):
         return None
 
 st.info("""
-**Research Progress:** Blocks A (Day 6), B (Days 7–9), and C (Days 10–12) are **complete** with actual experimental data.
-Block D (Anomaly Detection on AI City Track 4) is **in progress** — placeholder structure shown.
+**Research Progress:** Blocks A (Day 6), B (Days 7-9), C (Days 10-12), and D (Days 15-18) are shown from saved experiment artefacts when the corresponding files exist in `logs/`.
+If any section is missing, regenerate that block's outputs and refresh the app.
 """)
 st.markdown("---")
 
@@ -72,7 +71,7 @@ if _ba:
             "Selected":           _CHECK,
         },
         {
-            "Detector":           "SSD300 (COCO — Fix F06)",
+            "Detector":           "SSD300 (COCO)",
             "mAP@0.5":            _det["ssd300"]["mAP50"],
             "mAP@0.5:0.95":       _det["ssd300"]["mAP50-95"],
             "Precision":          _det["ssd300"]["precision"],
@@ -148,7 +147,7 @@ if _ba:
     - Evaluated on UA-DETRAC test split (MVI_20062, MVI_20063). IoU threshold = {_ba['evaluation_iou_threshold']}
     - **FPS measured on {_ba['inference_hardware']}.**
     - ⚠️ {_ba['hardware_note']}
-    - SSD300 uses COCO pre-training only — no UA-DETRAC fine-tuning (Fix F06)
+    - SSD300 uses COCO pre-training only — no UA-DETRAC fine-tuning
     - Selection rule: primary = mAP@0.5 if delta > 0.05; secondary = FPS p50
     - ⚠️ {_ba['resolution_note']}
     """)
@@ -345,7 +344,7 @@ if feature_csvs:
             )
             st.plotly_chart(fig_sp, use_container_width=True)
             st.caption(
-                "speed_window = int(0.2 × fps) = 5 frames at 25 FPS (Fix F07). "
+                "speed_window = int(0.2 × fps) = 5 frames at 25 FPS. "
                 "Image-space proxy — not calibrated to km/h."
             )
 
@@ -366,7 +365,7 @@ if feature_csvs:
             st.caption(
                 "⚠️ Image-space proxy normalised by frame diagonal (640×√2 ≈ 905 px). "
                 "NaN when only one track present in frame (single-track frames excluded from F3 sets). "
-                "Fix F28: perspective effects mean this is NOT physical distance."
+                "Perspective effects mean this is NOT physical distance."
             )
 
         # Per-sequence feature stats
@@ -433,7 +432,7 @@ if os.path.exists(_RESULTS_TABLE_CSV):
                 textposition="outside",
             ))
             fig_auroc.update_layout(
-                title="OC-SVM AUROC by Feature Set — Fix F04 (3-sigma train-stats proxy labels)",
+                title="OC-SVM AUROC by Feature Set — 3-sigma train-stats proxy labels",
                 xaxis_title="Feature Set",
                 yaxis=dict(range=[0, 1.15], title="AUROC"),
                 height=430,
@@ -476,13 +475,13 @@ if os.path.exists(_RESULTS_TABLE_CSV):
                     st.warning(f"Could not read metadata: {me}")
 
         st.caption(
-            "AUROC (Fix F04 — anti-circular): OC-SVM decision-function scores on "
+            "AUROC: OC-SVM decision-function scores on "
             "UA-DETRAC val split (MVI_20061). y_val_binary uses a 3-sigma threshold "
             "from train-split statistics only — no val data contaminates labels. "
             "Measures feature separability of statistical outliers within a normal "
             "distribution, NOT true anomaly detection. Block D (AI City) provides true GT. "
             "Silhouette: cluster separation under proxy labels. "
-            "Fix F02: nu swept over {0.01, 0.02, 0.05, 0.10, 0.15} on 80/20 train "
+            "nu swept over {0.01, 0.02, 0.05, 0.10, 0.15} on 80/20 train "
             "hold-out. Row counts may differ for F3-containing sets due to NaN semantics "
             "(single-track frames have no inter-vehicle distance)."
         )
@@ -568,7 +567,7 @@ if os.path.exists(_bd_results):
             st.caption(
                 "Green bars = FAR gate passed (mean FAR < 0.10). "
                 "Red bar = Isolation Forest flagged (mean FAR = 0.3354 ≥ threshold — "
-                "results reportable but annotated per Fix F14). "
+                "results reportable but annotated). "
                 "Error bars = ±1 std FAR across 10 normal clips."
             )
 
@@ -627,7 +626,7 @@ if os.path.exists(_bd_results):
             "All 10 anomaly events detected by all methods (event_pred=1, coverage=100%). "
             "Key differentiator is FAR (false alarm rate on normal clips). "
             "OC-SVM (mean_FAR=0.0283) and rule_based (mean_FAR=0.035) pass the gate. "
-            "Isolation Forest fails (mean_FAR=0.3354) — annotated Fix F14."
+            "Isolation Forest fails (mean_FAR=0.3354) — annotated."
         )
 
     except Exception as _err:
@@ -685,7 +684,7 @@ Adding F3 interaction features reduces separability on UA-DETRAC normal-traffic 
 
 **Key Insight (Block D):** All three methods detect 100% of AI City Track 4 anomaly events.
 The discriminator is FAR: OC-SVM (0.0283) and rule_based (0.035) pass the gate;
-Isolation Forest (0.3354) fails — annotated Fix F14. Latency: 21.11 FPS end-to-end,
+Isolation Forest (0.3354) fails — annotated. Latency: 21.11 FPS end-to-end,
 bottleneck is the anomaly stage (43.48 ms mean). McNemar test (p=0.031) confirms
 IF vs rule_based gate-failure difference is statistically significant.
 """)

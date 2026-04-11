@@ -9,7 +9,6 @@ import sys
 import json
 import random
 import time
-import tempfile
 import warnings
 from datetime import datetime
 
@@ -77,6 +76,24 @@ for k, v in _SS_DEFAULTS.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
+
+def _image_fill_kwargs():
+    """
+    Return Streamlit image sizing kwargs compatible with the installed version.
+    Streamlit 1.32 uses `use_column_width`; newer releases may prefer
+    `use_container_width`.
+    """
+    try:
+        import inspect
+
+        image_params = inspect.signature(st.image).parameters
+        if "use_container_width" in image_params:
+            return {"use_container_width": True}
+    except Exception:
+        pass
+
+    return {"use_column_width": True}
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR CONFIGURATION
 # ══════════════════════════════════════════════════════════════════════════════
@@ -98,13 +115,12 @@ with st.sidebar:
 
         # Quick metadata preview (reads header only via temp file)
         try:
-            _tmp_bytes = uploaded_file.read()
-            uploaded_file.seek(0)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as _tf:
-                _tf.write(_tmp_bytes)
-                _tf_name = _tf.name
-            _meta_preview = get_video_metadata(_tf_name)
-            os.unlink(_tf_name)
+            _preview_path = save_uploaded_file(uploaded_file)
+            try:
+                _meta_preview = get_video_metadata(_preview_path)
+            finally:
+                if os.path.exists(_preview_path):
+                    os.unlink(_preview_path)
             st.success(
                 f"✅ **{uploaded_file.name}**  \n"
                 f"{_meta_preview['frame_count']} frames · "
@@ -176,7 +192,7 @@ with st.sidebar:
         ["Rule-Based", "One-Class SVM", "Isolation Forest"],
         key="anomaly_choice",
         help="OC-SVM is the frozen best (FAR=0.0283). "
-             "Isolation Forest failed FAR gate (FAR=0.3354, Fix F14).",
+             "Isolation Forest failed FAR gate (FAR=0.3354).",
     )
     st.caption(
         "OC-SVM: nu=0.01, F2_only (Block C Day 12). "
@@ -277,7 +293,8 @@ if run_button and uploaded_file is not None:
 
         # OC-SVM pre-trained model status
         if anomaly_choice == "One-Class SVM":
-            if anomaly_detector._using_pretrained:
+            exact_f2_only = set(features_selected) == {"F2: Speed"} and len(features_selected) == 1
+            if anomaly_detector._using_pretrained and exact_f2_only:
                 st.success(
                     "✅ Block C pre-trained OC-SVM loaded (`ocsvm_trained_best.pkl`). "
                     "Using F2_only features (vel_px_sec, vel_px_sec_smooth) — "
@@ -285,8 +302,8 @@ if run_button and uploaded_file is not None:
                 )
             else:
                 st.info(
-                    "ℹ️ Pre-trained OC-SVM not found. "
-                    "Training on warmup data (first 200 frames, nu=0.01)."
+                    "ℹ️ Live OC-SVM will train on the selected feature groups during "
+                    f"warmup (first 200 frames, nu=0.01). Selected groups: {', '.join(features_selected)}."
                 )
 
         # Frame processing loop
@@ -378,7 +395,7 @@ if run_button and uploaded_file is not None:
                 frame_ph.image(
                     frame_rgb_live,
                     caption=f"Frame {processed_idx} / {total_to_process}",
-                    use_container_width=True,
+                    **_image_fill_kwargs(),
                 )
 
                 t1 = time.perf_counter()
@@ -407,7 +424,7 @@ if run_button and uploaded_file is not None:
         status_box.success(
             f"✅ Pipeline complete — processed {processed_idx} frames  |  "
             f"{len(anomaly_events_list)} anomaly event(s) detected  |  "
-            f"avg {1.0/np.mean(frame_times):.1f} FPS"
+            f"avg {1.0/max(float(np.mean(frame_times)), 1e-9):.1f} FPS"
             if frame_times else
             f"✅ Pipeline complete — processed {processed_idx} frames"
         )
@@ -481,7 +498,7 @@ if st.session_state.results is not None:
                         st.image(
                             fd["image"],
                             caption=f"Frame {fd['frame_idx']} — ANOMALY",
-                            use_container_width=True,
+                            **_image_fill_kwargs(),
                         )
                 st.markdown("---")
 
@@ -498,7 +515,7 @@ if st.session_state.results is not None:
                             f"Frame {fd['frame_idx']}  ·  "
                             f"{fd['n_tracks']} track(s)"
                         ),
-                        use_container_width=True,
+                        **_image_fill_kwargs(),
                     )
         else:
             st.info(
@@ -567,7 +584,7 @@ if st.session_state.results is not None:
             )
             st.plotly_chart(fig_sp, use_container_width=True)
             st.caption(
-                "speed_window = int(0.2 × fps) frames (Fix F07). "
+                "speed_window = int(0.2 × fps) frames. "
                 "Image-space proxy — NOT calibrated to km/h. "
                 "Red dashed line = rule-based anomaly threshold (mean + 2σ). "
                 "✕ markers = frames with anomaly events."
@@ -594,7 +611,7 @@ if st.session_state.results is not None:
                 plot_bgcolor="#f8fafc",
             )
             fig_dist.add_annotation(
-                text="⚠️ Image-space proxy — NOT physical distance (Fix F28)",
+                text="⚠️ Image-space proxy — NOT physical distance",
                 xref="paper", yref="paper",
                 x=0.5, y=-0.20, showarrow=False,
                 font=dict(size=11, color="#e53e3e"),
