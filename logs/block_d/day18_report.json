@@ -163,9 +163,9 @@
       "hypothesis": "H0: rho(pct_clipped, far_value) = 0",
       "alternative": "two-sided",
       "n_pairs": 30,
-      "r": 0.298535597708774,
-      "p_value": 0.1090554703308934,
-      "r_squared": 0.08912350309933496,
+      "r": 0.29853559770877414,
+      "p_value": 0.10905547033089302,
+      "r_squared": 0.08912350309933503,
       "significant_05": false,
       "interpretation": "Not significant (r=0.2985, p=0.1091): no linear relationship between domain shift and false alarm rate.",
       "note": "Test adapted from original plan (Pearson on per-sequence IDSW vs speed_std) because Block B has only 2 test sequences (IDSW data for MVI_20062 and MVI_20063 only), giving n=2 which is statistically useless. pct_clipped\u2192far_value (n=30) tests the same domain-shift \u2192 error-rate hypothesis at adequate sample size."

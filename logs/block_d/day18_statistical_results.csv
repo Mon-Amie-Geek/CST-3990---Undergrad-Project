@@ -1,4 +1,4 @@
 test,comparison,n,statistic,p_value,significant_05,effect_size,data_source
-Wilcoxon signed-rank,rule_based vs ocsvm FAR per clip,10,18.0,0.375,False,"median_rb=0.0361, median_ocsvm=0.0010",day17_far_per_clip.csv
+Wilcoxon signed-rank,rule_based vs ocsvm FAR per clip,10,18.0,0.375,False,Δmedian=0.0351,day17_far_per_clip.csv
 McNemar (exact),rule_based vs IF FAR-gate outcomes,10,0.0,0.03125,True,"b=6, c=0",day17_far_per_clip.csv
-Pearson r,pct_clipped vs far_value (all 30 pairs),30,0.298535597708774,0.1090554703308934,False,r²=0.0891,day17_far_per_clip.csv
+Pearson r,pct_clipped vs far_value (all 30 pairs),30,0.29853559770877414,0.10905547033089302,False,r²=0.0891,day17_far_per_clip.csv
