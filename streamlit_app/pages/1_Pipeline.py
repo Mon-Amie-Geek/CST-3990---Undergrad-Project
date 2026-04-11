@@ -1,191 +1,307 @@
 """
-1_Pipeline.py
-
-Main pipeline page for processing traffic videos.
-Aligns feature naming with Block C schema v1.1 (F1/F2/F3).
+1_Pipeline.py — Live video processing pipeline
 Student: MANJOO Ameera Najla | M01014463
+Project: CST3990 Undergraduate Individual Project
 """
 
-import streamlit as st
-import cv2
-import numpy as np
-import time
-import pandas as pd
+import os
+import sys
 import json
-import torch
 import random
+import time
+import tempfile
+import warnings
 from datetime import datetime
 
-# Import components
+import cv2
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
+import torch
+
+warnings.filterwarnings("ignore")
+
+# ── Fix import path so pages/ can find streamlit_app/ siblings ─────────────────
+_PAGES_DIR = os.path.dirname(os.path.abspath(__file__))
+_APP_DIR   = os.path.normpath(os.path.join(_PAGES_DIR, ".."))
+if _APP_DIR not in sys.path:
+    sys.path.insert(0, _APP_DIR)
+
 from components import Detector, Tracker, FeatureExtractor, AnomalyDetector
 from utils.video_utils import get_video_metadata, save_uploaded_file
 from utils.drawing_utils import draw_tracks, draw_anomaly_banner
 
-# Set seeds
 torch.manual_seed(42)
 np.random.seed(42)
 random.seed(42)
 
-st.set_page_config(page_title="Pipeline - CST3990 Traffic Anomaly Detection", layout="wide")
+# ── Page config ────────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="Pipeline — CST3990",
+    page_icon="🎥",
+    layout="wide",
+)
 
-st.title("🎥 Live Detection Pipeline")
+st.markdown("""
+<style>
+    .main .block-container { padding-top: 1.2rem; }
+    div[data-testid="metric-container"] {
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 0.4rem 0.6rem;
+    }
+    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 6px 6px 0 0;
+        padding: 0.5rem 1.2rem;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# Initialize session state
-if "processing" not in st.session_state:
-    st.session_state.processing    = False
-    st.session_state.results       = None
-    st.session_state.frame_data    = []
-    st.session_state.anomaly_events = []
+st.title("🎥 Traffic Analysis Pipeline")
+st.caption(
+    "Upload a traffic video, configure each pipeline block, then run to see "
+    "live detection, feature extraction, and anomaly detection in action."
+)
 
-# ============================================================================
+# ── Session state ──────────────────────────────────────────────────────────────
+_SS_DEFAULTS = {
+    "results":          None,
+    "annotated_frames": [],
+    "processing":       False,
+    "last_file_name":   None,
+}
+for k, v in _SS_DEFAULTS.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SIDEBAR CONFIGURATION
-# ============================================================================
-st.sidebar.header("⚙️ Pipeline Configuration")
+# ══════════════════════════════════════════════════════════════════════════════
+with st.sidebar:
+    st.header("⚙️ Pipeline Configuration")
 
-# 1. Video Upload
-uploaded_file = st.sidebar.file_uploader("Upload traffic video (.mp4)", type=["mp4"])
-
-# 2. Block A: Detector
-st.sidebar.write("### Block A — Detector")
-st.sidebar.caption("Research frozen: **YOLOv8n** (mAP@0.5 = 0.6674, Day 6)")
-detector_choice = st.sidebar.radio(
-    "Select detector:",
-    ["YOLOv8n (fine-tuned)", "SSD300 (COCO)"],
-    key="detector_choice"
-)
-
-# 3. Confidence / NMS thresholds
-conf_thresh = st.sidebar.slider("Confidence threshold:", 0.10, 0.90, 0.25, 0.05)
-nms_thresh  = st.sidebar.slider("NMS threshold:",         0.10, 0.90, 0.45, 0.05)
-
-# 4. Block B: Tracker
-st.sidebar.write("### Block B — Tracker")
-st.sidebar.caption("Research frozen: **SORT** (IDF1 = 0.0412, Day 9)")
-tracker_choice = st.sidebar.radio(
-    "Select tracker:",
-    ["SORT", "DeepSORT", "ByteTrack"],
-    key="tracker_choice"
-)
-import os as _os
-_reid_path = _os.path.join(_os.path.dirname(__file__), "..", "..", "models", "osnet_x1_0_veri_776.pth")
-if tracker_choice == "DeepSORT" and not _os.path.exists(_reid_path):
-    st.sidebar.warning(
-        "⚠️ DeepSORT requires `models/osnet_x1_0_veri_776.pth` (VeRi-776 ReID weights).  \n"
-        "File not found — clicking **Run** will fail. Use **SORT** instead (research-frozen selection)."
-    )
-else:
-    st.sidebar.caption(
-        "ℹ️ The app uses the workspace Block B tracker implementations and frozen configs. "
-        "DeepSORT uses VeRi-776 ReID; ByteTrack uses two-pass confidence association."
+    # ── Video upload ───────────────────────────────────────────────────────────
+    uploaded_file = st.file_uploader(
+        "📂 Upload traffic video (.mp4)",
+        type=["mp4"],
+        help="Select an .mp4 video file from your local machine.",
     )
 
-# 5. Block C: Features
-st.sidebar.write("### Block C — Features")
-st.sidebar.caption("Research frozen: **F2_only** (AUROC = 0.9935, Day 12)")
-features_selected = st.sidebar.multiselect(
-    "Select feature groups:",
-    ["F1: Density/Flow", "F2: Speed", "F3: Distance/Proximity"],
-    default=["F1: Density/Flow", "F2: Speed", "F3: Distance/Proximity"],
-    key="features_selected"
-)
+    if uploaded_file is not None:
+        if st.session_state.last_file_name != uploaded_file.name:
+            st.session_state.last_file_name   = uploaded_file.name
+            st.session_state.results          = None
+            st.session_state.annotated_frames = []
 
-# 6. Block D: Anomaly Method
-st.sidebar.write("### Block D — Anomaly Detection")
-anomaly_choice = st.sidebar.radio(
-    "Select anomaly method:",
-    ["Rule-Based", "One-Class SVM", "Isolation Forest"],
-    key="anomaly_choice"
-)
-st.sidebar.caption(
-    "OC-SVM: nu=0.01 (Block C Day 12 best nu for F2_only). "
-    "If the pre-trained Block C model is found, it is loaded directly."
-)
+        # Quick metadata preview (reads header only via temp file)
+        try:
+            _tmp_bytes = uploaded_file.read()
+            uploaded_file.seek(0)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as _tf:
+                _tf.write(_tmp_bytes)
+                _tf_name = _tf.name
+            _meta_preview = get_video_metadata(_tf_name)
+            os.unlink(_tf_name)
+            st.success(
+                f"✅ **{uploaded_file.name}**  \n"
+                f"{_meta_preview['frame_count']} frames · "
+                f"{_meta_preview['fps']:.1f} FPS · "
+                f"{_meta_preview['duration_sec']:.1f}s  \n"
+                f"{_meta_preview['width']}×{_meta_preview['height']} px"
+            )
+        except Exception:
+            st.success(f"✅ Loaded: **{uploaded_file.name}**")
 
-st.sidebar.markdown("---")
+    st.divider()
 
-# 7. Run Button
-run_button = st.sidebar.button(
-    "▶ Run Pipeline",
-    disabled=(uploaded_file is None),
-    use_container_width=True,
-    type="primary"
-)
+    # ── Block A ────────────────────────────────────────────────────────────────
+    st.markdown("**🔍 Block A — Detector**")
+    st.caption("Research frozen: **YOLOv8n** (mAP@0.5 = 0.6674, Day 6)")
+    detector_choice = st.radio(
+        "Detector:",
+        ["YOLOv8n (fine-tuned)", "SSD300 (COCO)"],
+        key="detector_choice",
+        help="YOLOv8n is the frozen research selection (fine-tuned on UA-DETRAC). "
+             "SSD300 uses COCO pre-training only.",
+    )
+    col_conf, col_nms = st.columns(2)
+    with col_conf:
+        conf_thresh = st.slider("Confidence", 0.10, 0.90, 0.25, 0.05,
+                                help="Minimum detection confidence.")
+    with col_nms:
+        nms_thresh = st.slider("NMS IoU", 0.10, 0.90, 0.45, 0.05,
+                               help="NMS suppression threshold.")
 
-# 8. Visualization Options
-st.sidebar.write("### Visualization Options")
-show_boxes = st.sidebar.checkbox("Show bounding boxes", value=True)
-show_ids   = st.sidebar.checkbox("Show track IDs",      value=True)
-show_speed = st.sidebar.checkbox("Show speed labels",   value=True)
+    st.divider()
 
-# ============================================================================
-# MAIN PANEL — TABS
-# ============================================================================
-tab1, tab2, tab3 = st.tabs(["Live Detection", "Feature Charts", "Results Summary"])
+    # ── Block B ────────────────────────────────────────────────────────────────
+    st.markdown("**🔗 Block B — Tracker**")
+    st.caption("Research frozen: **SORT** (IDF1 = 0.0412, Day 9)")
+    tracker_choice = st.radio(
+        "Tracker:",
+        ["SORT", "DeepSORT", "ByteTrack"],
+        key="tracker_choice",
+        help="SORT is the frozen selection. DeepSORT requires VeRi-776 ReID weights.",
+    )
+    _REPO = os.path.normpath(os.path.join(_APP_DIR, ".."))
+    _reid_path = os.path.join(_REPO, "models", "osnet_x1_0_veri_776.pth")
+    if tracker_choice == "DeepSORT" and not os.path.exists(_reid_path):
+        st.warning(
+            "⚠️ DeepSORT requires `models/osnet_x1_0_veri_776.pth` (VeRi-776 weights).  \n"
+            "File not found — please use **SORT** (frozen selection) instead."
+        )
 
-# ============================================================================
-# TAB 1: LIVE DETECTION
-# ============================================================================
-with tab1:
-    if run_button and uploaded_file:
-        st.session_state.processing = True
+    st.divider()
 
+    # ── Block C ────────────────────────────────────────────────────────────────
+    st.markdown("**📐 Block C — Feature Groups**")
+    st.caption("Research frozen: **F2_only** (AUROC = 0.9935, Day 12)")
+    features_selected = st.multiselect(
+        "Feature groups to extract:",
+        ["F1: Density/Flow", "F2: Speed", "F3: Distance/Proximity"],
+        default=["F1: Density/Flow", "F2: Speed", "F3: Distance/Proximity"],
+        key="features_selected",
+        help="F2 (Speed) is the frozen selection. F1 and F3 add density/proximity context.",
+    )
+
+    st.divider()
+
+    # ── Block D ────────────────────────────────────────────────────────────────
+    st.markdown("**🚨 Block D — Anomaly Detection**")
+    anomaly_choice = st.radio(
+        "Method:",
+        ["Rule-Based", "One-Class SVM", "Isolation Forest"],
+        key="anomaly_choice",
+        help="OC-SVM is the frozen best (FAR=0.0283). "
+             "Isolation Forest failed FAR gate (FAR=0.3354, Fix F14).",
+    )
+    st.caption(
+        "OC-SVM: nu=0.01, F2_only (Block C Day 12). "
+        "Pre-trained model loaded from `logs/block_c/ocsvm_trained_best.pkl` if available."
+    )
+
+    st.divider()
+
+    # ── Visualisation ──────────────────────────────────────────────────────────
+    st.markdown("**🎨 Visualisation**")
+    show_boxes = st.checkbox("Bounding boxes", value=True)
+    show_ids   = st.checkbox("Track IDs",      value=True)
+    show_speed = st.checkbox("Speed labels",   value=True)
+
+    # Frame skip control
+    process_every_n = st.select_slider(
+        "Process every N-th frame:",
+        options=[1, 2, 3, 5, 10],
+        value=3,
+        help="Higher = faster processing; lower = more accurate. "
+             "3 is the research default.",
+    )
+
+    st.divider()
+
+    run_button = st.button(
+        "▶ Run Pipeline",
+        disabled=(uploaded_file is None),
+        use_container_width=True,
+        type="primary",
+    )
+    if uploaded_file is None:
+        st.caption("⬆️ Upload a video file first.")
+
+    if st.session_state.results is not None:
+        if st.button("🔄 Clear Results", use_container_width=True):
+            st.session_state.results          = None
+            st.session_state.annotated_frames = []
+            st.rerun()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PROCESSING — runs at page level (not inside a tab)
+# ══════════════════════════════════════════════════════════════════════════════
+_TRACKER_NAME_MAP = {
+    "SORT":       "sort",
+    "DeepSORT":   "deepsort",
+    "ByteTrack":  "bytetrack",
+}
+_ANOMALY_NAME_MAP = {
+    "Rule-Based":       "rule_based",
+    "One-Class SVM":    "ocsvm",
+    "Isolation Forest": "isolation_forest",
+}
+
+if run_button and uploaded_file is not None:
+    st.session_state.processing       = True
+    st.session_state.results          = None
+    st.session_state.annotated_frames = []
+
+    video_path = None
+
+    # Status containers at the top of the main area
+    status_box   = st.empty()
+    progress_bar = st.progress(0, text="Initialising…")
+
+    # Live display: frame + real-time stats side by side
+    live_col_frame, live_col_stats = st.columns([3, 1])
+    frame_ph = live_col_frame.empty()
+    stats_ph = live_col_stats.empty()
+
+    try:
+        # Save upload to temp file
         video_path = save_uploaded_file(uploaded_file)
+        metadata   = get_video_metadata(video_path)
+        fps         = metadata["fps"]
+        frame_count = metadata["frame_count"]
+        width       = metadata["width"]
+        height      = metadata["height"]
+
+        status_box.info(
+            f"⚙️ Processing **{uploaded_file.name}** — "
+            f"{frame_count} frames @ {fps:.1f} FPS ({width}×{height})  \n"
+            f"Processing every {process_every_n}rd frame — "
+            f"estimated {frame_count // process_every_n} frames to process."
+        )
+
+        # Build pipeline components
+        detector_name = "yolov8n" if "YOLOv8n" in detector_choice else "ssd300"
+        detector = Detector(detector_name, conf_thresh, nms_thresh)
+
+        tracker_name = _TRACKER_NAME_MAP.get(tracker_choice, "sort")
+        tracker = Tracker(tracker_name)
+
+        feature_extractor = FeatureExtractor(fps, width, height, features_selected)
+
+        anomaly_method   = _ANOMALY_NAME_MAP.get(anomaly_choice, "rule_based")
+        anomaly_detector = AnomalyDetector(anomaly_method)
+
+        # OC-SVM pre-trained model status
+        if anomaly_choice == "One-Class SVM":
+            if anomaly_detector._using_pretrained:
+                st.success(
+                    "✅ Block C pre-trained OC-SVM loaded (`ocsvm_trained_best.pkl`). "
+                    "Using F2_only features (vel_px_sec, vel_px_sec_smooth) — "
+                    "Block C research-quality inference."
+                )
+            else:
+                st.info(
+                    "ℹ️ Pre-trained OC-SVM not found. "
+                    "Training on warmup data (first 200 frames, nu=0.01)."
+                )
+
+        # Frame processing loop
+        cap = cv2.VideoCapture(video_path)
+
+        frame_idx            = 0
+        processed_idx        = 0
+        frame_times          = []
+        anomaly_events_list  = []
+        frame_data_list      = []
+        speed_data_by_frame  = {}
+        annotated_frames_buf = []   # (frame_idx, rgb_image, is_anomaly)
+        total_to_process     = max(1, frame_count // process_every_n)
 
         try:
-            metadata    = get_video_metadata(video_path)
-            fps         = metadata["fps"]
-            frame_count = metadata["frame_count"]
-            width       = metadata["width"]
-            height      = metadata["height"]
-
-            st.success(
-                f"✅ Loaded: {frame_count} frames @ {fps:.1f} FPS ({width}×{height})"
-            )
-
-            # Initialise components
-            detector_name = "yolov8n" if "YOLOv8n" in detector_choice else "ssd300"
-            detector      = Detector(detector_name, conf_thresh, nms_thresh)
-
-            tracker_name  = tracker_choice.lower()
-            tracker       = Tracker(tracker_name)
-
-            feature_extractor = FeatureExtractor(fps, width, height, features_selected)
-
-            anomaly_name_map = {
-                "Rule-Based":        "rule_based",
-                "One-Class SVM":     "ocsvm",
-                "Isolation Forest":  "isolation_forest",
-            }
-            anomaly_detector = AnomalyDetector(anomaly_name_map[anomaly_choice])
-
-            # ── Show if pre-trained OC-SVM was loaded ───────────────────────
-            if anomaly_choice == "One-Class SVM" and anomaly_detector._using_pretrained:
-                st.info(
-                    "✅ Block C pre-trained OC-SVM loaded (`ocsvm_trained_best.pkl`). "
-                    "Using F2_only features (vel_px_sec, vel_px_sec_smooth) with "
-                    "fitted MinMaxScaler — Block C research-quality inference."
-                )
-            elif anomaly_choice == "One-Class SVM":
-                st.info(
-                    "ℹ️ Block C pre-trained OC-SVM not found. "
-                    "Training on warmup data (first 200 frames) with nu=0.01."
-                )
-
-            # Process frames
-            cap = cv2.VideoCapture(video_path)
-            process_every_n = 3
-
-            frame_placeholder  = st.empty()
-            stats_placeholder  = st.empty()
-            progress_bar       = st.progress(0)
-
-            frame_idx          = 0
-            processed_frame_idx = 0
-            frame_times         = []
-            anomaly_events_local = []
-            frame_data_list     = []
-            speed_data_by_frame = {}
-
             while cap.isOpened():
                 ret, frame = cap.read()
                 if not ret:
@@ -195,350 +311,521 @@ with tab1:
                 if frame_idx % process_every_n != 0:
                     continue
 
-                processed_frame_idx += 1
-                t_start = time.time()
+                processed_idx += 1
+                t0 = time.perf_counter()
 
-                # Detect → Track → Extract → Predict
+                # ── Detect → Track → Extract → Predict ────────────────────────
                 detections     = detector.detect(frame)
-                tracks         = tracker.update(detections, processed_frame_idx, frame=frame)
-                features       = feature_extractor.extract(tracks, processed_frame_idx)
+                tracks         = tracker.update(detections, processed_idx, frame=frame)
+                features       = feature_extractor.extract(tracks, processed_idx)
                 frame_data_list.append(features)
                 anomaly_result = anomaly_detector.predict(features)
 
-                # Anomalous track IDs (post-warmup only)
+                # Identify anomalous track IDs (post-warmup only)
                 anomalous_ids = set()
-                for track in tracks:
-                    if track.get("age", 0) >= feature_extractor.warmup_frames:
-                        if anomaly_result["is_anomaly"]:
-                            anomalous_ids.add(track["track_id"])
+                if anomaly_result["is_anomaly"]:
+                    for t in tracks:
+                        if t.get("age", 0) >= feature_extractor.warmup_frames:
+                            anomalous_ids.add(t["track_id"])
 
                 # Per-track speed for label overlay
                 speed_data = {}
-                for track in tracks:
-                    tid = track.get("track_id")
+                for t in tracks:
+                    tid = t.get("track_id")
                     if tid and tid in feature_extractor.track_history:
                         spds = feature_extractor.track_history[tid]["speeds"]
                         if spds:
                             speed_data[tid] = float(np.mean(spds[-3:]))
+                speed_data_by_frame[processed_idx] = speed_data
 
-                speed_data_by_frame[processed_frame_idx] = speed_data
-
-                # Draw and display
+                # ── Draw ───────────────────────────────────────────────────────
                 annotated = draw_tracks(
                     frame, tracks, anomalous_ids,
-                    show_boxes, show_ids, show_speed, speed_data
+                    show_boxes, show_ids, show_speed, speed_data,
                 )
+                feat_label = anomaly_result.get("triggered_feature") or "Unknown"
                 if anomaly_result["is_anomaly"]:
-                    feat_label = anomaly_result.get("triggered_feature") or "Unknown"
                     annotated = draw_anomaly_banner(
                         annotated,
-                        f"ANOMALY — {feat_label} — Frame {processed_frame_idx}"
+                        f"⚠ ANOMALY — {feat_label} — Frame {processed_idx}",
                     )
-                    anomaly_events_local.append({
-                        "Frame":              processed_frame_idx,
-                        "Track ID":           ("multiple" if len(anomalous_ids) > 1
-                                               else list(anomalous_ids)[0] if anomalous_ids
-                                               else "unknown"),
-                        "Class":              "Anomalous Behaviour",
-                        "Feature Triggered":  feat_label,
-                        "Timestamp (s)":      round(processed_frame_idx / fps, 2),
-                        "Score":              round(float(anomaly_result.get("score", 0.0)), 4),
+                    anomaly_events_list.append({
+                        "Frame":             processed_idx,
+                        "Timestamp (s)":     round(processed_idx / fps, 2),
+                        "Track IDs":         (
+                            str(list(anomalous_ids)) if anomalous_ids else "unknown"
+                        ),
+                        "Feature Triggered": feat_label,
+                        "Score":             round(float(anomaly_result.get("score", 0.0)), 4),
+                        "Method":            anomaly_result.get("method", anomaly_method),
                     })
-                    st.error(
-                        f"⚠ ANOMALY DETECTED — Frame {processed_frame_idx} — {feat_label}"
-                    )
 
-                frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-                frame_placeholder.image(frame_rgb, use_container_width=True)
+                # Store key frames for post-processing gallery
+                # Keep: every Nth (for overview) + all anomaly frames
+                _is_anom = anomaly_result["is_anomaly"]
+                _store_interval = max(1, total_to_process // 20)   # ~20 overview frames
+                if (processed_idx % _store_interval == 0) or _is_anom:
+                    frame_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                    annotated_frames_buf.append({
+                        "frame_idx": processed_idx,
+                        "image":     frame_rgb,
+                        "anomaly":   _is_anom,
+                        "n_tracks":  len(tracks),
+                    })
 
-                t_end = time.time()
-                frame_times.append(t_end - t_start)
-                fps_current = 1.0 / (t_end - t_start) if (t_end - t_start) > 0 else 0
+                # ── Live display update ────────────────────────────────────────
+                frame_rgb_live = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                frame_ph.image(
+                    frame_rgb_live,
+                    caption=f"Frame {processed_idx} / {total_to_process}",
+                    use_container_width=True,
+                )
 
-                with stats_placeholder.container():
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Frame",         f"{processed_frame_idx} / {frame_count // process_every_n}")
-                    c2.metric("FPS",           f"{fps_current:.1f}")
-                    c3.metric("Active Tracks", len(tracks))
-                    c4.metric("Anomalies",     len(anomaly_events_local))
+                t1 = time.perf_counter()
+                elapsed = t1 - t0
+                frame_times.append(elapsed)
+                fps_live = 1.0 / elapsed if elapsed > 0 else 0.0
 
-                progress = processed_frame_idx / max(1, frame_count // process_every_n)
-                progress_bar.progress(min(1.0, progress))
+                with stats_ph.container():
+                    st.metric("Frame",    f"{processed_idx}/{total_to_process}")
+                    st.metric("Live FPS", f"{fps_live:.1f}")
+                    st.metric("Tracks",   len(tracks))
+                    st.metric("Anomalies", len(anomaly_events_list))
+                    if anomaly_events_list:
+                        st.error(f"⚠ {len(anomaly_events_list)} event(s)")
 
+                progress_pct = processed_idx / total_to_process
+                progress_bar.progress(
+                    min(1.0, progress_pct),
+                    text=f"Frame {processed_idx} / {total_to_process}",
+                )
+
+        finally:
             cap.release()
 
-            st.session_state.results = {
-                "frame_data":         frame_data_list,
-                "anomaly_events":     anomaly_events_local,
-                "frame_times":        frame_times,
-                "speed_data_by_frame": speed_data_by_frame,
-                "metadata":           metadata,
-                "config": {
-                    "detector":       detector_choice,
-                    "conf_thresh":    conf_thresh,
-                    "nms_thresh":     nms_thresh,
-                    "tracker":        tracker_choice,
-                    "features":       features_selected,
-                    "anomaly_method": anomaly_choice,
-                },
-            }
-            st.success("✅ Pipeline processing complete!")
-            st.session_state.processing = False
-
-        except Exception as e:
-            st.error(f"❌ Error processing video: {e}")
-            st.session_state.processing = False
-
-    elif not st.session_state.processing:
-        st.info(
-            "👆 Upload a traffic video (.mp4) and configure the pipeline in the sidebar, "
-            "then click **▶ Run Pipeline**."
+        progress_bar.progress(1.0, text="Processing complete ✓")
+        status_box.success(
+            f"✅ Pipeline complete — processed {processed_idx} frames  |  "
+            f"{len(anomaly_events_list)} anomaly event(s) detected  |  "
+            f"avg {1.0/np.mean(frame_times):.1f} FPS"
+            if frame_times else
+            f"✅ Pipeline complete — processed {processed_idx} frames"
         )
 
-# ============================================================================
-# TAB 2: FEATURE CHARTS
-# ============================================================================
-with tab2:
-    if st.session_state.results:
-        import plotly.graph_objects as go
+        # Store results in session state
+        st.session_state.results = {
+            "frame_data":          frame_data_list,
+            "anomaly_events":      anomaly_events_list,
+            "frame_times":         frame_times,
+            "speed_data_by_frame": speed_data_by_frame,
+            "metadata":            metadata,
+            "config": {
+                "detector":       detector_choice,
+                "conf_thresh":    conf_thresh,
+                "nms_thresh":     nms_thresh,
+                "tracker":        tracker_choice,
+                "features":       features_selected,
+                "anomaly_method": anomaly_choice,
+                "process_every":  process_every_n,
+            },
+        }
+        st.session_state.annotated_frames = annotated_frames_buf
 
-        frame_data = st.session_state.results["frame_data"]
-        frames     = list(range(len(frame_data)))
+    except Exception as exc:
+        status_box.error(f"❌ Pipeline error: {exc}")
+        st.exception(exc)
+
+    finally:
+        if video_path and os.path.exists(video_path):
+            try:
+                os.unlink(video_path)
+            except Exception:
+                pass
+        st.session_state.processing = False
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DISPLAY SECTION — shown when results are available
+# ══════════════════════════════════════════════════════════════════════════════
+if st.session_state.results is not None:
+    results        = st.session_state.results
+    frame_data     = results["frame_data"]
+    anomaly_events = results["anomaly_events"]
+    frame_times    = results["frame_times"]
+    metadata       = results["metadata"]
+    config         = results["config"]
+    fps_video      = metadata["fps"]
+    ann_frames     = st.session_state.annotated_frames
+
+    st.markdown("---")
+    tab1, tab2, tab3 = st.tabs([
+        "🖼️ Detection View",
+        "📈 Feature Charts",
+        "📋 Results Summary",
+    ])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 1: DETECTION VIEW
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab1:
+        if ann_frames:
+            anom_frames   = [f for f in ann_frames if f["anomaly"]]
+            normal_frames = [f for f in ann_frames if not f["anomaly"]]
+
+            # ── Anomaly frames first ───────────────────────────────────────────
+            if anom_frames:
+                st.subheader(f"⚠️ Anomaly Frames ({len(anom_frames)} detected)")
+                n_cols = min(3, len(anom_frames))
+                cols   = st.columns(n_cols)
+                for i, fd in enumerate(anom_frames[:n_cols * 2]):
+                    with cols[i % n_cols]:
+                        st.image(
+                            fd["image"],
+                            caption=f"Frame {fd['frame_idx']} — ANOMALY",
+                            use_container_width=True,
+                        )
+                st.markdown("---")
+
+            # ── Overview frames ────────────────────────────────────────────────
+            st.subheader(f"📸 Frame Overview ({len(normal_frames)} sampled)")
+            show_n = min(12, len(normal_frames))
+            n_cols = 3
+            frame_cols = st.columns(n_cols)
+            for i, fd in enumerate(normal_frames[:show_n]):
+                with frame_cols[i % n_cols]:
+                    st.image(
+                        fd["image"],
+                        caption=(
+                            f"Frame {fd['frame_idx']}  ·  "
+                            f"{fd['n_tracks']} track(s)"
+                        ),
+                        use_container_width=True,
+                    )
+        else:
+            st.info(
+                "No annotated frames were captured during this run.  \n"
+                "This can happen if the video had very few frames. Try re-running."
+            )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 2: FEATURE CHARTS
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab2:
+        feat_config = config["features"]
+        frames_idx  = list(range(len(frame_data)))
 
         st.caption(
-            "Feature naming aligned with Block C schema v1.1. "
+            "Feature names aligned with Block C schema v1.1. "
             "Speed = F2 (vel_px_sec), Distance = F3 (inter_vehicle_dist_norm proxy), "
             "Dwell = F3 (dwell_time_sec), Density = F1 (vehicle_count)."
         )
 
-        # ── F2: Speed (vel_px_sec) ───────────────────────────────────────────
-        if "F2: Speed" in features_selected:
-            speeds = [f.get("mean_speed_px_sec", 0.0) for f in frame_data]
+        # Anomaly event frame indices for marker overlay
+        anom_frame_idxs = [e["Frame"] for e in anomaly_events]
+
+        # ── F2: Speed ──────────────────────────────────────────────────────────
+        if "F2: Speed" in feat_config:
+            speeds = [float(f.get("mean_speed_px_sec", 0.0)) for f in frame_data]
 
             fig_sp = go.Figure()
             fig_sp.add_trace(go.Scatter(
-                x=frames, y=speeds,
-                mode="lines", name="mean vel_px_sec",
-                line=dict(color="#2ca02c", width=2)
+                x=frames_idx, y=speeds,
+                mode="lines", name="vel_px_sec (mean)",
+                line=dict(color="#2ca02c", width=2),
             ))
 
             if speeds and max(speeds) > 0:
-                threshold = np.mean(speeds) + 2.0 * np.std(speeds)
+                spd_mean = float(np.mean(speeds))
+                spd_std  = float(np.std(speeds))
+                thresh   = spd_mean + 2.0 * spd_std
                 fig_sp.add_hline(
-                    y=threshold, line_dash="dash", line_color="red",
-                    annotation_text=f"Z-score threshold (mean + 2σ = {threshold:.1f} px/s)"
+                    y=thresh, line_dash="dash", line_color="#e53e3e",
+                    annotation_text=f"Threshold (mean+2σ = {thresh:.0f} px/s)",
+                    annotation_position="top right",
                 )
+
+            # Mark anomaly events
+            if anom_frame_idxs:
+                anom_speeds = [
+                    speeds[i] if i < len(speeds) else 0.0
+                    for i in anom_frame_idxs
+                ]
+                fig_sp.add_trace(go.Scatter(
+                    x=anom_frame_idxs, y=anom_speeds,
+                    mode="markers", name="Anomaly event",
+                    marker=dict(color="#e53e3e", size=12, symbol="x",
+                                line=dict(width=2, color="#e53e3e")),
+                ))
 
             fig_sp.update_layout(
                 title="F2 — Speed Proxy Over Time (vel_px_sec, image-space, NOT km/h)",
-                xaxis_title="Processed Frame",
+                xaxis_title="Processed Frame Index",
                 yaxis_title="Mean speed (px/sec)",
-                hovermode="x unified",
                 height=400,
+                hovermode="x unified",
+                plot_bgcolor="#f8fafc",
+                legend=dict(x=0.01, y=0.99),
             )
             st.plotly_chart(fig_sp, use_container_width=True)
             st.caption(
                 "speed_window = int(0.2 × fps) frames (Fix F07). "
                 "Image-space proxy — NOT calibrated to km/h. "
-                "Red dashed line = rule-based anomaly threshold (mean + 2σ from full sequence)."
+                "Red dashed line = rule-based anomaly threshold (mean + 2σ). "
+                "✕ markers = frames with anomaly events."
             )
 
-        # ── F3: Inter-Vehicle Distance (inter_vehicle_dist_norm proxy) ───────
-        if "F3: Distance/Proximity" in features_selected:
-            distances = [f.get("min_distance_norm", 1.0) for f in frame_data]
-
+        # ── F3: Inter-Vehicle Distance ─────────────────────────────────────────
+        if "F3: Distance/Proximity" in feat_config:
+            distances = [float(f.get("min_distance_norm", 1.0)) for f in frame_data]
             fig_dist = go.Figure()
             fig_dist.add_trace(go.Scatter(
-                x=frames, y=distances,
-                mode="lines+markers", name="min inter-vehicle dist (normalised)",
+                x=frames_idx, y=distances,
+                mode="lines", name="inter_vehicle_dist_norm",
                 line=dict(color="#9467bd", width=2),
-                marker=dict(size=3)
             ))
-
             fig_dist.update_layout(
-                title="F3 — Minimum Inter-Vehicle Distance (inter_vehicle_dist_norm proxy, normalised by frame diagonal)",
-                xaxis_title="Processed Frame",
+                title=(
+                    "F3 — Minimum Inter-Vehicle Distance "
+                    "(inter_vehicle_dist_norm, normalised by frame diagonal ≈ 905 px)"
+                ),
+                xaxis_title="Processed Frame Index",
                 yaxis_title="Normalised distance (0–1)",
+                height=380,
                 hovermode="x unified",
-                height=400,
+                plot_bgcolor="#f8fafc",
             )
             fig_dist.add_annotation(
                 text="⚠️ Image-space proxy — NOT physical distance (Fix F28)",
                 xref="paper", yref="paper",
-                x=0.5, y=-0.18, showarrow=False,
-                font=dict(size=11, color="red")
+                x=0.5, y=-0.20, showarrow=False,
+                font=dict(size=11, color="#e53e3e"),
             )
             st.plotly_chart(fig_dist, use_container_width=True)
             st.caption(
                 "Normalised by frame diagonal (640×√2 ≈ 905 px). "
-                "NaN/1.0 when only one vehicle is present. "
-                "Image-space only — perspective effects make this a relative behavioural indicator."
+                "Value = 1.0 when fewer than 2 vehicles are tracked. "
+                "Perspective effects mean this is a relative behavioural indicator only."
             )
 
-            # ── F3: Dwell Time ───────────────────────────────────────────────
-            dwell_times = [f.get("mean_dwell_sec", 0.0) for f in frame_data]
-            if any(d > 0 for d in dwell_times):
-                fig_dwell = go.Figure()
-                fig_dwell.add_trace(go.Scatter(
-                    x=frames, y=dwell_times,
-                    mode="lines", name="mean dwell_time_sec",
-                    line=dict(color="#d62728", width=2)
+            # ── F3: Dwell Time ─────────────────────────────────────────────────
+            dwell = [float(f.get("mean_dwell_sec", 0.0)) for f in frame_data]
+            if any(d > 0 for d in dwell):
+                fig_dwell = go.Figure(go.Scatter(
+                    x=frames_idx, y=dwell,
+                    mode="lines", name="dwell_time_sec",
+                    line=dict(color="#d62728", width=2),
                 ))
                 fig_dwell.update_layout(
-                    title="F3 — Mean Track Dwell Time (dwell_time_sec = time in scene)",
-                    xaxis_title="Processed Frame",
+                    title="F3 — Mean Track Dwell Time (dwell_time_sec = cumulative time in scene)",
+                    xaxis_title="Processed Frame Index",
                     yaxis_title="Dwell time (seconds)",
+                    height=340,
                     hovermode="x unified",
-                    height=360,
+                    plot_bgcolor="#f8fafc",
                 )
                 st.plotly_chart(fig_dwell, use_container_width=True)
                 st.caption(
-                    "Dwell time = (last_frame − first_frame) / fps for each active track. "
-                    "Rising dwell times may indicate stopped or slow-moving vehicles."
+                    "dwell_time_sec = (last_frame − first_frame) / fps for each active track. "
+                    "Persistently rising values may indicate stationary or slow vehicles."
                 )
 
-        # ── F1: Vehicle Count / ROI Occupancy ────────────────────────────────
-        if "F1: Density/Flow" in features_selected:
-            # Sample every 10 frames to avoid overloading the bar chart
-            sampled_frames  = frames[::10]
-            vehicle_counts  = [frame_data[i].get("vehicle_count", 0)
-                               for i in range(0, len(frame_data), 10)]
-            roi_occupancies = [frame_data[i].get("roi_occupancy", 0.0)
-                               for i in range(0, len(frame_data), 10)]
+        # ── F1: Density / ROI Occupancy ────────────────────────────────────────
+        if "F1: Density/Flow" in feat_config:
+            step = max(1, len(frame_data) // 100)   # ~100 bars max for readability
+            sframes = frames_idx[::step]
+            vc  = [frame_data[i].get("vehicle_count", 0) for i in range(0, len(frame_data), step)]
+            roi = [frame_data[i].get("roi_occupancy", 0.0) for i in range(0, len(frame_data), step)]
 
             fig_f1 = go.Figure()
             fig_f1.add_trace(go.Bar(
-                x=sampled_frames, y=vehicle_counts,
+                x=sframes, y=vc,
                 name="vehicle_count (F1)",
-                marker=dict(color="#ff7f0e"),
+                marker_color="#ff7f0e",
                 yaxis="y",
             ))
             fig_f1.add_trace(go.Scatter(
-                x=sampled_frames, y=roi_occupancies,
+                x=sframes, y=roi,
                 mode="lines", name="roi_occupancy (F1)",
                 line=dict(color="#1f77b4", width=2),
                 yaxis="y2",
             ))
             fig_f1.update_layout(
-                title="F1 — Vehicle Count & ROI Occupancy Over Time (sampled every 10 frames)",
-                xaxis_title="Processed Frame",
+                title="F1 — Vehicle Count & ROI Occupancy Over Time",
+                xaxis_title="Processed Frame Index",
                 yaxis=dict(title="Vehicle Count"),
                 yaxis2=dict(title="ROI Occupancy (0–1)", overlaying="y", side="right"),
-                hovermode="x unified",
                 height=400,
+                hovermode="x unified",
+                plot_bgcolor="#f8fafc",
                 legend=dict(x=0.01, y=0.99),
             )
             st.plotly_chart(fig_f1, use_container_width=True)
             st.caption(
-                "roi_occupancy is estimated as (n_tracks × 80×60) / (frame_width × frame_height). "
-                "This is a simplified proxy — exact bbox areas are not used in the demo."
+                "roi_occupancy estimated as (n_tracks × 80×60) / (frame_w × frame_h). "
+                "Simplified proxy — exact bbox areas not used in streaming demo."
             )
 
-    else:
-        st.info("👈 Run the pipeline first to generate feature charts.")
+        # ── Anomaly Score Timeline ─────────────────────────────────────────────
+        if anomaly_events:
+            scores    = [e["Score"] for e in anomaly_events]
+            a_times   = [e["Timestamp (s)"] for e in anomaly_events]
+            a_labels  = [e.get("Feature Triggered", "") for e in anomaly_events]
 
-# ============================================================================
-# TAB 3: RESULTS SUMMARY
-# ============================================================================
-with tab3:
-    if st.session_state.results:
-        results       = st.session_state.results
-        config        = results["config"]
-        metadata      = results["metadata"]
-        frame_data    = results["frame_data"]
-        anomaly_events = results["anomaly_events"]
-        frame_times   = results["frame_times"]
+            fig_scr = go.Figure(go.Scatter(
+                x=a_times, y=scores,
+                mode="lines+markers",
+                name="Anomaly Score",
+                line=dict(color="#e53e3e", width=2),
+                marker=dict(size=10, color="#e53e3e"),
+                text=a_labels,
+                hovertemplate="t=%{x:.2f}s<br>Score=%{y:.4f}<br>%{text}<extra></extra>",
+            ))
+            fig_scr.update_layout(
+                title="Anomaly Score at Detection Events",
+                xaxis_title="Video time (s)",
+                yaxis_title="Anomaly score (higher = more anomalous)",
+                height=320,
+                plot_bgcolor="#f8fafc",
+            )
+            st.plotly_chart(fig_scr, use_container_width=True)
+        else:
+            st.info("✅ No anomaly events detected — anomaly score timeline not available.")
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # TAB 3: RESULTS SUMMARY
+    # ══════════════════════════════════════════════════════════════════════════
+    with tab3:
         st.subheader("Pipeline Configuration Used")
-        col1, col2 = st.columns(2)
+        r_col1, r_col2 = st.columns(2)
 
-        with col1:
-            st.write("**Block A — Detector:**")
+        with r_col1:
+            st.markdown("**Block A — Detector**")
             st.metric("Selected Detector",    config["detector"])
             st.metric("Confidence Threshold", f"{config['conf_thresh']:.2f}")
             st.metric("NMS Threshold",        f"{config['nms_thresh']:.2f}")
-
-            st.write("**Block B — Tracker:**")
+            st.markdown("**Block B — Tracker**")
             st.metric("Selected Tracker", config["tracker"])
-
-            st.write("**Block C — Feature Groups:**")
-            st.write(", ".join(config["features"]) if config["features"] else "None selected")
-
-            st.write("**Block D — Anomaly Method:**")
+            st.markdown("**Block C — Feature Groups**")
+            st.write(
+                ", ".join(config["features"]) if config["features"] else "*(none selected)*"
+            )
+            st.markdown("**Block D — Anomaly Method**")
             st.metric("Method", config["anomaly_method"])
 
-        with col2:
-            st.write("**Performance Metrics:**")
+        with r_col2:
+            st.markdown("**Performance Metrics**")
             st.metric("Video FPS",            f"{metadata['fps']:.1f}")
             st.metric("Total Frames (video)", metadata["frame_count"])
             st.metric("Frames Processed",     len(frame_data))
-            st.metric("Frame Skip",           "Every 3rd frame (3×)")
-
+            st.metric("Frame Skip",           f"Every {config.get('process_every', 3)}rd frame")
             if frame_times:
-                st.metric("Processing FPS",   f"{1.0 / np.mean(frame_times):.1f}")
-                st.metric("Avg Latency (ms)", f"{np.mean(frame_times) * 1000:.1f}")
-                st.metric("p95 Latency (ms)", f"{np.percentile(frame_times, 95) * 1000:.1f}")
-
+                proc_fps     = 1.0 / float(np.mean(frame_times))
+                avg_lat_ms   = float(np.mean(frame_times)) * 1000
+                p95_lat_ms   = float(np.percentile(frame_times, 95)) * 1000
+                st.metric("Processing FPS",   f"{proc_fps:.1f}")
+                st.metric("Avg Latency",      f"{avg_lat_ms:.1f} ms")
+                st.metric("p95 Latency",      f"{p95_lat_ms:.1f} ms")
             st.metric("Anomaly Events",       len(anomaly_events))
 
         st.markdown("---")
 
-        # Feature summary statistics
+        # ── Feature statistics ─────────────────────────────────────────────────
         if frame_data:
-            st.subheader("Feature Summary Statistics (this video)")
+            st.subheader("Feature Summary Statistics")
             df_feat = pd.DataFrame(frame_data)
-            _stat_cols = [c for c in [
+            stat_cols = [c for c in [
                 "vehicle_count", "roi_occupancy",
-                "mean_speed_px_sec", "min_distance_norm", "mean_dwell_sec"
+                "mean_speed_px_sec", "min_distance_norm", "mean_dwell_sec",
             ] if c in df_feat.columns]
-            if _stat_cols:
-                _stat_display = df_feat[_stat_cols].describe().round(4)
-                # Rename columns to match Block C schema names for clarity
-                _rename = {
-                    "mean_speed_px_sec": "vel_px_sec (approx)",
-                    "min_distance_norm": "inter_vehicle_dist_norm (proxy)",
-                    "mean_dwell_sec":    "dwell_time_sec (mean)",
-                }
-                _stat_display = _stat_display.rename(columns=_rename)
-                st.dataframe(_stat_display, use_container_width=True)
+            if stat_cols:
+                st.dataframe(
+                    df_feat[stat_cols]
+                    .describe()
+                    .round(4)
+                    .rename(columns={
+                        "mean_speed_px_sec": "vel_px_sec (approx)",
+                        "min_distance_norm": "inter_vehicle_dist_norm (proxy)",
+                        "mean_dwell_sec":    "dwell_time_sec (mean)",
+                    }),
+                    use_container_width=True,
+                )
 
         st.markdown("---")
         st.subheader("Anomaly Event Log")
 
         if anomaly_events:
-            df_events = pd.DataFrame(anomaly_events)
-            st.dataframe(df_events, use_container_width=True)
+            df_ev = pd.DataFrame(anomaly_events)
+            st.dataframe(df_ev, use_container_width=True)
+            st.caption(
+                f"Total: **{len(anomaly_events)}** anomaly event(s) detected in this video."
+            )
         else:
-            st.info("No anomalies detected in this video.")
+            st.success("✅ No anomalies detected in this video.")
 
         st.markdown("---")
+        st.subheader("Download Results")
 
-        # Download buttons
-        col1, col2 = st.columns(2)
-        with col1:
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
             if anomaly_events:
-                events_json = json.dumps(anomaly_events, indent=2)
+                _ts = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.download_button(
-                    label="📥 Download events.json",
-                    data=events_json,
-                    file_name=f"anomaly_events_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                    label="📥 Download anomaly_events.json",
+                    data=json.dumps(anomaly_events, indent=2),
+                    file_name=f"anomaly_events_{_ts}.json",
                     mime="application/json",
+                    help="Download the full anomaly event log as JSON.",
                 )
-        with col2:
+        with dl_col2:
             if frame_data:
-                df_features = pd.DataFrame(frame_data)
-                # Rename to match Block C schema names
-                df_features = df_features.rename(columns={
+                _ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                df_dl = pd.DataFrame(frame_data).rename(columns={
                     "mean_speed_px_sec": "vel_px_sec",
                     "min_distance_norm": "inter_vehicle_dist_norm",
                     "mean_dwell_sec":    "dwell_time_sec",
                 })
                 st.download_button(
                     label="📥 Download features.csv",
-                    data=df_features.to_csv(index=False),
-                    file_name=f"features_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    data=df_dl.to_csv(index=False),
+                    file_name=f"features_{_ts}.csv",
                     mime="text/csv",
+                    help="Download per-frame feature data as CSV (Block C schema v1.1 names).",
                 )
 
-    else:
-        st.info("👈 Run the pipeline first to see results summary.")
+# ══════════════════════════════════════════════════════════════════════════════
+# IDLE STATE — shown when no results and not processing
+# ══════════════════════════════════════════════════════════════════════════════
+elif not st.session_state.processing and not run_button:
+    st.markdown("---")
+    col_info1, col_info2 = st.columns([2, 1])
+    with col_info1:
+        st.markdown("""
+### 👈 Getting Started
+
+1. **Upload** a traffic video (`.mp4`) using the sidebar
+2. **Configure** each pipeline block:
+   - Block A: choose detector & thresholds
+   - Block B: choose tracker
+   - Block C: select feature groups
+   - Block D: choose anomaly detection method
+3. Click **▶ Run Pipeline**
+4. View results in the tabs:
+   - **Detection View** — annotated frame gallery
+   - **Feature Charts** — speed, distance, density over time
+   - **Results Summary** — metrics, event log, downloads
+
+> The research-frozen selection is shown as a caption under each option.
+> All processing runs on CPU — processing speed depends on video length.
+""")
+    with col_info2:
+        st.markdown("""
+### 🔒 Frozen Selections
+
+| Block | Selection |
+|---|---|
+| A | YOLOv8n |
+| B | SORT |
+| C | F2_only |
+| D | OC-SVM |
+
+> See the **Comparison** page for full evaluation results and the **About** page for methodology details.
+""")

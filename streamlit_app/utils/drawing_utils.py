@@ -14,103 +14,109 @@ def draw_tracks(frame, tracks, anomalous_ids,
                 speed_data=None):
     """
     Draw bounding boxes and metadata on a frame.
-    
+
     Args:
-        frame (np.ndarray): Input frame
+        frame (np.ndarray): Input BGR frame
         tracks (list): List of track dicts with 'track_id', 'bbox', 'centroid'
         anomalous_ids (set): Set of track IDs flagged as anomalous
         show_boxes (bool): Whether to draw bounding boxes
         show_ids (bool): Whether to draw track IDs
         show_speed (bool): Whether to draw speed labels
         speed_data (dict): Dict mapping track_id to speed in px/sec
-        
+
     Returns:
-        np.ndarray: Annotated frame
+        np.ndarray: Annotated frame (copy)
     """
-    if not show_boxes:
-        return frame
-    
     frame_copy = frame.copy()
-    
+
+    if not show_boxes or not tracks:
+        return frame_copy
+
+    h, w = frame_copy.shape[:2]
+
     for track in tracks:
         track_id = track.get("track_id")
-        bbox = track.get("bbox")
-        
-        if not bbox:
+        bbox     = track.get("bbox")
+
+        if not bbox or len(bbox) < 4:
             continue
-        
-        x1, y1, x2, y2 = bbox
-        x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
-        
-        # Determine box color
-        if track_id in anomalous_ids:
-            color = (0, 0, 255)  # Red for anomalous
-        else:
-            color = (0, 255, 0)  # Green for normal
-        
-        # Draw bounding box
+
+        try:
+            x1, y1, x2, y2 = (
+                int(max(0, bbox[0])),
+                int(max(0, bbox[1])),
+                int(min(w - 1, bbox[2])),
+                int(min(h - 1, bbox[3])),
+            )
+        except (ValueError, TypeError):
+            continue
+
+        if x2 <= x1 or y2 <= y1:
+            continue
+
+        # Box colour: red for anomalous, green for normal
+        color = (0, 0, 255) if (anomalous_ids and track_id in anomalous_ids) else (0, 200, 0)
+
+        # Bounding box
         cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
-        
-        # Draw track ID above box
+
+        # Labels — stack above the box; clamp so they stay in frame
+        label_y = y1 - 6
+        label_lines = []
+
         if show_ids and track_id is not None:
-            text_x = x1
-            text_y = max(y1 - 10, 20)
-            cv2.putText(
-                frame_copy,
-                f"ID: {track_id}",
-                (text_x, text_y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 255),  # White
-                2
-            )
-        
-        # Draw speed below track ID
+            label_lines.append(f"ID:{track_id}")
         if show_speed and speed_data and track_id in speed_data:
-            speed = speed_data[track_id]
-            text_x = x1
-            text_y = max(y1 - 25, 20) if show_ids else max(y1 - 10, 20)
+            label_lines.append(f"{speed_data[track_id]:.0f}px/s")
+
+        for i, text in enumerate(label_lines):
+            ty = max(14, label_y - (len(label_lines) - 1 - i) * 16)
+            # Small dark background for legibility
+            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+            cv2.rectangle(frame_copy, (x1, ty - th - 2), (x1 + tw + 2, ty + 2),
+                          (0, 0, 0), -1)
             cv2.putText(
-                frame_copy,
-                f"{speed:.1f} px/s",
-                (text_x, text_y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 255, 255),  # Yellow
-                1
+                frame_copy, text,
+                (x1 + 1, ty),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                (255, 255, 255), 1, cv2.LINE_AA,
             )
-    
+
     return frame_copy
 
 
 def draw_anomaly_banner(frame, message):
     """
-    Draw a red banner with anomaly message at the top of the frame.
-    
+    Draw a semi-transparent red banner with anomaly message at the top of the frame.
+
     Args:
-        frame (np.ndarray): Input frame
-        message (str): Message to display
-        
+        frame (np.ndarray): Input BGR frame
+        message (str): Message to display (truncated if too long)
+
     Returns:
-        np.ndarray: Frame with banner
+        np.ndarray: Frame with banner (copy)
     """
     frame_copy = frame.copy()
-    height = frame.shape[0]
-    
-    # Draw semi-transparent red banner at top
-    overlay = frame_copy.copy()
-    cv2.rectangle(overlay, (0, 0), (frame.shape[1], 60), (0, 0, 255), -1)
-    cv2.addWeighted(overlay, 0.5, frame_copy, 0.5, 0, frame_copy)
-    
-    # Draw white text
+    fw = frame.shape[1]
+
+    banner_h = 54
+    overlay  = frame_copy.copy()
+    cv2.rectangle(overlay, (0, 0), (fw, banner_h), (20, 20, 220), -1)
+    cv2.addWeighted(overlay, 0.60, frame_copy, 0.40, 0, frame_copy)
+
+    # Truncate message to fit frame width
+    font       = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.75
+    thickness  = 2
+    max_chars  = max(10, fw // 14)
+    if len(message) > max_chars:
+        message = message[:max_chars - 1] + "…"
+
     cv2.putText(
-        frame_copy,
-        message,
-        (20, 40),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        1.0,
-        (255, 255, 255),  # White
-        2
+        frame_copy, message,
+        (12, 36),
+        font, font_scale,
+        (255, 255, 255), thickness, cv2.LINE_AA,
     )
-    
+
     return frame_copy
