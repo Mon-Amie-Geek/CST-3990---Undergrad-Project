@@ -81,12 +81,12 @@ models/
 
 Datasets are available at: **[https://drive.google.com/drive/folders/192YQNLgm3JWsh4PFxFd_a5IIjbir-MWS?usp=sharing]**
 
-Extract to the `dataset/` directory. Expected structure:
+Extract to the `data/` directory. Expected structure:
 ```
-dataset/
+data/
 ├── ua_detrac/
 ├── ai_city/
-└── 
+└── tu_dat/
 ```
 
 ---
